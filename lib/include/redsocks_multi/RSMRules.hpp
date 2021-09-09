@@ -33,7 +33,7 @@ ZEC_NS
 		std::string Password;
 	};
 	
-	struct xRsmProxyS5
+	struct xRsmS5Proxy
 	{
 		xRsmAddr Addr;
 		xOptional<xRsmProxyAuth> Auth;
@@ -45,6 +45,16 @@ ZEC_NS
         xRsmAddr SourceAddr;
         xRsmAddr TargetAddr;
         xRsmAddr Sock5ProxyAddr;
+    };
+        
+    struct xRsmRequest
+    {
+        xOptional<std::string> SourceIp;
+        xOptional<std::string> TargetIp;
+        xOptional<uint16_t>    TargetPort;
+        
+        std::string            S5ProxyIp;
+        uint16_t               S5ProxyPort;
     };
 
 }

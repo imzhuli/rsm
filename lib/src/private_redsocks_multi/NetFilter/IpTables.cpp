@@ -26,7 +26,7 @@ ZEC_NS
 		{
 			int level, option, value;
 		} opt[] = {
-			{SOL_SOCKET,  SO_KEEPALIVE,   1},
+			{SOL_SOCKET,  SO_KEEPALIVE,  1},
 			{IPPROTO_TCP, TCP_KEEPIDLE,  TcpKeepaliveTime},
 			{IPPROTO_TCP, TCP_KEEPCNT,   TcpKeepaliveProbes},
 			{IPPROTO_TCP, TCP_KEEPINTVL, TcpKeepaliveInterval},

@@ -3,6 +3,7 @@
 #include <mutex>
 
 #include <event2/event.h>
+#include <event2/http.h>
 #include <event2/thread.h>
 
 #ifndef EVTHREAD_USE_PTHREADS_IMPLEMENTED
@@ -17,7 +18,8 @@ ZEC_NS
     static xRsmConfig          _Config;
     static xLogger *           _LoggerPtr = NonLoggerPtr;
 
-    static struct event_base * _EventBase = nullptr;
+    static event_base * _EventBase = nullptr;
+    static evhttp * _HttpConfigListener = nullptr;
 
     static void OnLibeventFatalError(int err)
     {
@@ -32,21 +34,34 @@ ZEC_NS
             return false;
         }
 
-        do {
-            if (evthread_use_pthreads()) {
-                return false;
-            }
-            event_set_fatal_callback(&OnLibeventFatalError);
-
-            if (!(_EventBase = event_base_new())) {
-                libevent_global_shutdown();
-                return false;
-            }
-        } while(false);
-        
         _Config = Config;
+        event_set_fatal_callback(&OnLibeventFatalError);
+        if (evthread_use_pthreads()) {
+            goto LABEL_ERROR;
+        }
+        if (!(_EventBase = event_base_new())) {
+            goto LABEL_ERROR;
+        }
+        if (!(_HttpConfigListener = evhttp_new(_EventBase))) {
+            goto LABEL_ERROR;
+        }
+        if (evhttp_bind_socket(_HttpConfigListener, _Config.ConfigIp.c_str(), _Config.ConfigPort)) {
+            goto LABEL_ERROR;
+        }
+        
         _LoggerPtr = LoggerPtr;
         return _Inited = true;
+
+    LABEL_ERROR:
+        if (_HttpConfigListener) {
+            evhttp_free(Steal(_HttpConfigListener));
+        }
+        if (_EventBase) {
+            event_base_free(Steal(_EventBase));
+        }
+        libevent_global_shutdown();
+        Reset(_Config);
+        return false;
     }
 
     bool RSM_IsReady() 
@@ -59,10 +74,12 @@ ZEC_NS
         if (!_Inited) {
             Error("RSM Not Inited");
         }
+
+        _LoggerPtr = NonLoggerPtr;
+        evhttp_free(Steal(_HttpConfigListener));
         event_base_free(Steal(_EventBase));
         libevent_global_shutdown();
         Reset(_Config);
-        _LoggerPtr = NonLoggerPtr;
         _Inited = false;
     }
     

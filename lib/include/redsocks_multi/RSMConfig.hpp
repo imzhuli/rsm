@@ -12,10 +12,11 @@ ZEC_NS
     struct xRsmConfig
     {
         std::string ConfigIp   = "0.0.0.0";
-        uint16_t    ConfigPort = 12345;
+        uint16_t    ConfigPort = 22222;
 
         std::string EntryIp    = "0.0.0.0";
-        uint16_t    EntryPort  = 7788;
+        uint16_t    EntryPort  = 11111;
     };
+
 
 }
