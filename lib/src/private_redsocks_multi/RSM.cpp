@@ -54,7 +54,7 @@ ZEC_NS
         return _Inited;
     }
 
-    void RSM_Clean() {        
+    void RSM_Clean() {
         auto Guard = std::lock_guard(_InitMutex);
         if (!_Inited) {
             Error("RSM Not Inited");

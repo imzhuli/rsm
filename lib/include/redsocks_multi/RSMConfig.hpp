@@ -5,6 +5,10 @@
 ZEC_NS
 {
 
+	static inline constexpr const int TcpKeepaliveTime = 7200;
+	static inline constexpr const int TcpKeepaliveProbes = 9;
+	static inline constexpr const int TcpKeepaliveInterval = 75;
+
     struct xRsmConfig
     {
         std::string ConfigIp   = "0.0.0.0";
