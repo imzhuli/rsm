@@ -18,13 +18,17 @@ ZEC_NS
     struct xRsmAddr
     {
         union {
-            sockaddr       Header = {};            
+            sockaddr       SockAddrHeader = {};            
             sockaddr_in    Ipv4;
             sockaddr_in6   Ipv6;
         };
 
-        ZEC_INLINE bool IsIpv4() const { return Header.sa_family == AF_INET; }
-        ZEC_INLINE bool IsIpv6() const { return Header.sa_family == AF_INET6; }
+        ZEC_INLINE bool IsIpv4() const { return SockAddrHeader.sa_family == AF_INET; }
+        ZEC_INLINE bool IsIpv6() const { return SockAddrHeader.sa_family == AF_INET6; }
+
+        ZEC_INLINE sockaddr * GetAddr() { return &SockAddrHeader; }
+        ZEC_INLINE const sockaddr * GetAddr() const { return &SockAddrHeader; }
+        ZEC_INLINE size_t GetAddrLen() const { return IsIpv4() ? sizeof(Ipv4) : (IsIpv6() ? sizeof(Ipv6) : 0); }
     };
 
 	struct xRsmProxyAuth

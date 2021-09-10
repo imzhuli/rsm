@@ -11,10 +11,6 @@ fi
 rm -rf ./build
 mkdir build
 
-if [ ! -d logs ];then
-mkdir logs
-fi
-
 cd build
 cmake -DCMAKE_BUILD_TYPE=Debug -Wno-dev ../
 make -j ${PARAL}

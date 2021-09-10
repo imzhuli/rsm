@@ -18,5 +18,4 @@ ZEC_NS
         uint16_t    EntryPort  = 11111;
     };
 
-
 }

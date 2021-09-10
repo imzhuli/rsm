@@ -14,6 +14,6 @@ int main(int, char **)
     RSM_Init(Config, &Logger);
 
     RSM_LogI("Is RSM Ready ? %s", YN(RSM_IsReady()));
-    RSM_Run();
+    // RSM_Run();
     RSM_Clean();
 }

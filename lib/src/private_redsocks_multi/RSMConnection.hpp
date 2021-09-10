@@ -1,6 +1,9 @@
 #pragma once
 #include <zec/Common.hpp>
+
 #include <event2/event.h>
+#include <event2/util.h>
+#include <event2/listener.h>
 
 ZEC_NS
 {
@@ -21,6 +24,8 @@ ZEC_NS
         eState State; 
 
     };
+
+    ZEC_PRIVATE void ProxyEntryCallback(evconnlistener * Listener, evutil_socket_t SocketFd, sockaddr * Addr, int AddrLen, void * ContextPtr);
 
 }
 
