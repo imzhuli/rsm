@@ -1,5 +1,6 @@
 #pragma once
 #include "./Base/RSMBase.hpp"
+#include "./RSMRules.hpp"
 
 ZEC_NS
 {
@@ -9,14 +10,17 @@ ZEC_NS
     class xRsmProxyConnectionOperator final
     {
     public:
-        static void ClientReadCallback(struct bufferevent * bev, void * ContextPtr);
-        static void ClientEventCallback(struct bufferevent * bev, short events, void * ContextPtr);
+        ZEC_PRIVATE_MEMBER static void ServerEntryCallback
+            (evconnlistener * Listener, evutil_socket_t SocketFd, sockaddr * Addr, int AddrLen, void * ContextPtr);
 
-        static void ProxyReadCallback(struct bufferevent * bev, void * ContextPtr);
-        static void ProxyEventCallback(struct bufferevent * bev, short events, void * ContextPtr);
+        ZEC_PRIVATE_MEMBER static void ClientReadCallback(struct bufferevent * bev, void * ContextPtr);
+        ZEC_PRIVATE_MEMBER static void ClientEventCallback(struct bufferevent * bev, short events, void * ContextPtr);
 
-        static void DeferDelete(xRsmProxyConnection * ConnectionPtr);
-        static void CommitDeferedDeletions();
+        ZEC_PRIVATE_MEMBER static void ProxyReadCallback(struct bufferevent * bev, void * ContextPtr);
+        ZEC_PRIVATE_MEMBER static void ProxyEventCallback(struct bufferevent * bev, short events, void * ContextPtr);
+
+        ZEC_PRIVATE_MEMBER static void DeferDelete(xRsmProxyConnection * ConnectionPtr);
+        ZEC_PRIVATE_MEMBER static void CommitDeferedDeletions();
     };
 
     class xRsmProxyConnection final
@@ -32,25 +36,24 @@ ZEC_NS
             Established,
             Closed,
         };
-    
-        bool Connect(event_base * EventBasePtr, evutil_socket_t ClientSocketFd, const xRsmAddr& S5ProxyAddr);
-        void Disconnect();
+
+        ZEC_PRIVATE_MEMBER bool Connect(event_base * EventBasePtr, evutil_socket_t && ClientSocketFd, const xRsmS5Proxy& Rule);
+        ZEC_PRIVATE_MEMBER void Disconnect();
 
     private:
         friend class xRsmProxyConnectionOperator;
 
-        ~xRsmProxyConnection();
-        void OnProxyConnected();
-        void OnProxyDisconnected();
+        ZEC_PRIVATE_MEMBER ~xRsmProxyConnection();
+        ZEC_PRIVATE_MEMBER void OnProxyConnected();
+        ZEC_PRIVATE_MEMBER void OnProxyDisconnected();
+        ZEC_PRIVATE_MEMBER void OnClientDisconnected();
 
         eState State = eState::Inited;
-        event_base * _EventBaseShadow = nullptr;
-        
+        xOptional<xRsmProxyAuth> Auth;
+
         bufferevent * ClientEventPtr = nullptr;
         bufferevent * ProxyEventPtr = nullptr;
     };
-
-    ZEC_PRIVATE void ServerEntryCallback(evconnlistener * Listener, evutil_socket_t SocketFd, sockaddr * Addr, int AddrLen, void * ContextPtr);
 
 }
 

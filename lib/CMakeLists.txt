@@ -2,6 +2,7 @@ project(lib_${libname})
 
 ##OPTIONS
 set(Boost_USE_STATIC_LIBS ON)
+find_package(RapidJson)
 find_package(Libevent)
 find_package(MbedTls)
 find_package(Boost REQUIRED COMPONENTS)
@@ -15,6 +16,7 @@ endif()
 # local dependencies
 include_directories(
 	./include/
+	${RAPIDJSON_INCLUDE_DIRS}
 	${LIBEVENT_INCLUDE_DIRS}
 	${MBEDTLS_INCLUDE_DIRS}
 	${Boost_INCLUDE_DIRS}
@@ -38,6 +40,7 @@ aux_source_directory(./src/private_zec/Util                        ZEC_SRC)
 aux_source_directory(./src/private_zec/Container                   ZEC_SRC)
 
 aux_source_directory(./src/private_zec_ext/Crypto                  ZEC_SRC)
+aux_source_directory(./src/private_zec_ext/Json                    ZEC_SRC)
 aux_source_directory(./src/private_zec_ext/Utility                 ZEC_SRC)
 
 aux_source_directory(./src/private_redsocks_multi/                 ZEC_SRC)

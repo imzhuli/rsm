@@ -19,10 +19,10 @@ ZEC_NS
 
     struct xRsmConfig
     {
-        std::string ConfigIp   = "0.0.0.0";
+        std::string ConfigIp   = "192.168.100.1";
         uint16_t    ConfigPort = 22222;
 
-        std::string EntryIp    = "0.0.0.0";
+        std::string EntryIp    = "192.168.100.1";
         uint16_t    EntryPort  = 11111;
 
         bool IpOnlySourceRule = true;

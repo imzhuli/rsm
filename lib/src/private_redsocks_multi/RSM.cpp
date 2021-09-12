@@ -1,8 +1,8 @@
 #include "./RSMConfig.hpp"
 #include "./RSMRules.hpp"
+#include "./RSM.hpp"
 #include "./RSMConnection.hpp"
 
-#include <redsocks_multi/RSM.hpp>
 #include <atomic>
 #include <mutex>
 
@@ -24,17 +24,19 @@ ZEC_NS
     static xLogger *           _LoggerPtr = NonLoggerPtr;
 
     static std::atomic_bool    _KeepRunning = false;
-    static event_base *        _EventBase = nullptr;
     static evhttp *            _HttpConfigListener = nullptr;
     static evconnlistener *    _ConnectionListener = nullptr;
     static event *             _EventTicker = nullptr;
-  
+
+    event_base * _EventBase = nullptr;
+
     std::atomic_uint64_t TotalExactTargetRules = 0;
     std::atomic_uint64_t TotalExactSourceRules = 0;
     std::atomic_uint64_t TotalIpOnlyTargetRules = 0;
     std::atomic_uint64_t TotalIpOnlySourceRules = 0;
 
     std::atomic_uint64_t ConnectionsPerMinute = 0;
+    std::atomic_uint64_t TotalConnections;
     std::atomic_uint64_t DataInPerMinute = 0;
     std::atomic_uint64_t DataOutPerMinute = 0;
     std::atomic_uint64_t TotalDataIn;
@@ -50,7 +52,7 @@ ZEC_NS
         return _Config;
     }
 
-    static void OnTimerTick(int /*sock*/, short /*event*/, void * ContextPtr) 
+    static void OnTimerTick(int /*sock*/, short /*event*/, void * ContextPtr)
     {
         event_base_loopbreak(static_cast<event_base *>(ContextPtr));
     }
@@ -74,7 +76,10 @@ ZEC_NS
             if (!(_EventBase = event_base_new())) {
                 goto LABEL_ERROR;
             }
-            if (!(_EventTicker = evtimer_new(_EventBase, OnTimerTick, _EventBase))) {
+            if (!(_EventTicker = event_new(_EventBase, -1, EV_PERSIST, OnTimerTick, _EventBase))) {
+                goto LABEL_ERROR;
+            }
+            if (evtimer_add(_EventTicker, X2Ptr(timeval{ 0, 250'000 }))) {
                 goto LABEL_ERROR;
             }
         } while(false);
@@ -87,24 +92,25 @@ ZEC_NS
             if (evhttp_bind_socket(_HttpConfigListener, _Config.ConfigIp.c_str(), _Config.ConfigPort)) {
                 goto LABEL_ERROR;
             }
+            evhttp_set_timeout(_HttpConfigListener, 1);
             evhttp_set_gencb(_HttpConfigListener, HttpConfigCallback, nullptr);
         } while(false);
 
         // connection listener
         do {
             xRsmAddr Addr {};
-            if (1 == evutil_inet_pton(AF_INET, _Config.EntryIp.c_str(), &Addr.Ipv4)) {
+            if (1 == evutil_inet_pton(AF_INET, _Config.EntryIp.c_str(), &Addr.Ipv4.sin_addr)) {
                 Addr.Ipv4.sin_family = AF_INET;
                 Addr.Ipv4.sin_port = htons(_Config.EntryPort);
-                _ConnectionListener = evconnlistener_new_bind(_EventBase, &ServerEntryCallback, nullptr, 
-                    0, LEV_OPT_CLOSE_ON_FREE | LEV_OPT_REUSEABLE, 
-                    Addr.GetAddr(), sizeof(Addr.Ipv4));
-            } else if (1 == evutil_inet_pton(AF_INET6, _Config.EntryIp.c_str(), &Addr.Ipv6)) {
+                _ConnectionListener = evconnlistener_new_bind(_EventBase, xRsmProxyConnectionOperator::ServerEntryCallback, nullptr,
+                    0, LEV_OPT_CLOSE_ON_FREE | LEV_OPT_REUSEABLE,
+                    Addr.GetSockAddr(), sizeof(Addr.Ipv4));
+            } else if (1 == evutil_inet_pton(AF_INET6, _Config.EntryIp.c_str(), &Addr.Ipv6.sin6_addr)) {
                 Addr.Ipv6.sin6_family = AF_INET6;
                 Addr.Ipv6.sin6_port = htons(_Config.EntryPort);
-                _ConnectionListener = evconnlistener_new_bind(_EventBase, &ServerEntryCallback, nullptr, 
-                    0, LEV_OPT_CLOSE_ON_FREE | LEV_OPT_REUSEABLE, 
-                    Addr.GetAddr(), sizeof(Addr.Ipv6));
+                _ConnectionListener = evconnlistener_new_bind(_EventBase, xRsmProxyConnectionOperator::ServerEntryCallback, nullptr,
+                    0, LEV_OPT_CLOSE_ON_FREE | LEV_OPT_REUSEABLE,
+                    Addr.GetSockAddr(), sizeof(Addr.Ipv6));
             } else {
                 goto LABEL_ERROR;
             }
@@ -115,6 +121,13 @@ ZEC_NS
 
         } while(false);
 
+        do {
+            xRsmAddr ConfigAddr, EntryAddr;
+            ConfigAddr.From(_Config.ConfigIp.c_str(), _Config.ConfigPort);
+            EntryAddr.From(_Config.EntryIp.c_str(), _Config.EntryPort);
+            RSM_SetProxyBlacklist(ConfigAddr.GetSockAddr());
+            RSM_SetProxyBlacklist(EntryAddr.GetSockAddr());
+        } while(false);
         return _Inited = true;
 
     LABEL_ERROR:
@@ -136,7 +149,7 @@ ZEC_NS
         return false;
     }
 
-    bool RSM_IsReady() 
+    bool RSM_IsReady()
     {
         return _Inited;
     }
@@ -147,6 +160,7 @@ ZEC_NS
             Error("RSM Not Inited");
         }
 
+        RSM_ClearBlacklist();
         evconnlistener_free(Steal(_ConnectionListener));
         evhttp_free(Steal(_HttpConfigListener));
         event_free(Steal(_EventTicker));
@@ -156,7 +170,7 @@ ZEC_NS
         Reset(_Config);
         _Inited = false;
     }
-    
+
     xLogger * RSM_GetLogger()
     {
         return _LoggerPtr;
@@ -165,16 +179,18 @@ ZEC_NS
     xTimer StatisticTimer;
     static void RSM_LogStatistics()
     {
-        if (!StatisticTimer.TestAndTag(60s)) {
-            return; 
+        if (!StatisticTimer.TestAndTag(10s)) {
+            return;
         }
         RSM_LogI("StatisticTimeout: "
             "ConnectionsPerMinute=%u, "
+            "TotalConnections=%u, "
             "TotalExactTargetRules=%u, "
             "TotalExactSourceRules=%u, "
             "TotalIpOnlyTargetRules=%u, "
-            "TotalIpOnlySourceRules=%u, ", 
+            "TotalIpOnlySourceRules=%u, ",
             (unsigned int)ConnectionsPerMinute.exchange(0),
+            (unsigned int)TotalConnections,
             (unsigned int)TotalExactTargetRules,
             (unsigned int)TotalExactSourceRules,
             (unsigned int)TotalIpOnlyTargetRules,
@@ -182,18 +198,10 @@ ZEC_NS
         );
     }
 
-    static void RSM_ResetTimer()
-    {
-        assert(_EventTicker);
-        timeval tv { 0, 250'000 };
-        evtimer_add(_EventTicker, &tv);
-    } 
-
     void RSM_Run()
     {
         _KeepRunning = true;
         while(_KeepRunning) {
-            RSM_ResetTimer();
             event_base_loop(_EventBase, EVLOOP_ONCE);
             RSM_ClearTimeoutRules();
             RSM_LogStatistics();
