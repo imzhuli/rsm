@@ -30,7 +30,10 @@ int main(int Argc, char **Argv)
     auto Guard = xResourceGuard{ Logger };
     
     xRsmConfig Config {};
-    RSM_Init(Config, &Logger);
+    if (!RSM_Init(Config, &Logger)) {
+        cerr << "Failed to init service" << endl;
+        return -1;
+    }
     RSM_Run();
     RSM_Clean();
 

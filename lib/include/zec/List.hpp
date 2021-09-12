@@ -132,17 +132,17 @@ ZEC_NS
 	public:
 		ZEC_INLINE bool Empty() { return _Head.pNext == &_Head;  }
 		ZEC_INLINE void AddHead(tNode& rTarget) {
-			rTarget.AppendTo(_Head);
+			static_cast<xListNode&>(rTarget).AppendTo(_Head);
 		}
 		ZEC_INLINE void AddTail(tNode& rTarget) {
-			rTarget.AppendTo(*_Head.pPrev);
+			static_cast<xListNode&>(rTarget).AppendTo(*_Head.pPrev);
 		}
 		ZEC_INLINE void GrabHead(tNode& rTarget) {
-			rTarget.DetachUnsafe();
+			static_cast<xListNode&>(rTarget).DetachUnsafe();
 			AddHead(rTarget);
 		}
 		ZEC_INLINE void GrabTail(tNode& rTarget) {
-			rTarget.DetachUnsafe();
+			static_cast<xListNode&>(rTarget).DetachUnsafe();
 			AddTail(rTarget);
 		}
 		ZEC_INLINE void GrabListHead(xList& other) {

@@ -9,6 +9,14 @@ ZEC_NS
 	static inline constexpr const int TcpKeepaliveProbes = 9;
 	static inline constexpr const int TcpKeepaliveInterval = 75;
 
+    enum struct xRsmRuleType // the larger the value is, the higher priority the Rule is of
+    {
+        IpOnlySourceRule  = 0,
+        IpOnlyTargetRule  = 1,
+        ExactSourceRule   = 2,
+        ExactTargetRule   = 3,
+    };
+
     struct xRsmConfig
     {
         std::string ConfigIp   = "0.0.0.0";
@@ -16,6 +24,11 @@ ZEC_NS
 
         std::string EntryIp    = "0.0.0.0";
         uint16_t    EntryPort  = 11111;
+
+        bool IpOnlySourceRule = true;
+        bool ExactSourceRule = false;
+        bool IpOnlyTargetRule = false;
+        bool ExactTargetRule = false;
     };
 
 }

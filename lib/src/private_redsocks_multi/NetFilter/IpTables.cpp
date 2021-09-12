@@ -1,5 +1,6 @@
-#include <redsocks_multi/NetFilter/IpTables.hpp>
+#include "./IpTables.hpp"
 #include <redsocks_multi/RSMConfig.hpp>
+#include <cstring>
 
 #ifdef ZEC_SYSTEM_LINUX
 
@@ -7,6 +8,25 @@
 
 ZEC_NS
 {
+	bool GetOriginalTarget(int fd, xRef<xRsmAddr> TargetAddrOutput)
+	{
+		sockaddr_storage SockAddr = {};
+		socklen_t Socklen = sizeof(SockAddr);
+		int error = getsockopt(fd, SOL_IP, SO_ORIGINAL_DST, &SockAddr, &Socklen);
+		if (error) {
+			return false;
+		}		
+		auto &Output = TargetAddrOutput.Get();
+		if(SockAddr.ss_family == AF_INET) {
+			memcpy(&Output.Ipv4, &SockAddr, sizeof(Output.Ipv4));
+			return true;
+		}
+		else if(SockAddr.ss_family == AF_INET6) {
+			memcpy(&Output.Ipv6, &SockAddr, sizeof(Output.Ipv6));
+			return true;
+		}
+		return false;
+	}
 
 	bool GetOriginalTargetIpv4(int fd, xRef<sockaddr_in> TargetAddrOutput)
 	{

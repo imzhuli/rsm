@@ -23,13 +23,36 @@ ZEC_NS
     static xRsmConfig          _Config;
     static xLogger *           _LoggerPtr = NonLoggerPtr;
 
-    static event_base * _EventBase = nullptr;
-    static evhttp * _HttpConfigListener = nullptr;
-    static evconnlistener * _ConnectionListener = nullptr;
+    static std::atomic_bool    _KeepRunning = false;
+    static event_base *        _EventBase = nullptr;
+    static evhttp *            _HttpConfigListener = nullptr;
+    static evconnlistener *    _ConnectionListener = nullptr;
+    static event *             _EventTicker = nullptr;
+  
+    std::atomic_uint64_t TotalExactTargetRules = 0;
+    std::atomic_uint64_t TotalExactSourceRules = 0;
+    std::atomic_uint64_t TotalIpOnlyTargetRules = 0;
+    std::atomic_uint64_t TotalIpOnlySourceRules = 0;
+
+    std::atomic_uint64_t ConnectionsPerMinute = 0;
+    std::atomic_uint64_t DataInPerMinute = 0;
+    std::atomic_uint64_t DataOutPerMinute = 0;
+    std::atomic_uint64_t TotalDataIn;
+    std::atomic_uint64_t TotalDataOut;
 
     static void OnLibeventFatalError(int err)
     {
         RSM_LogE("Libevent Fatal Error: ErrCode=%i", err);
+    }
+
+    const xRsmConfig & RSM_GetConfig()
+    {
+        return _Config;
+    }
+
+    static void OnTimerTick(int /*sock*/, short /*event*/, void * ContextPtr) 
+    {
+        event_base_loopbreak(static_cast<event_base *>(ContextPtr));
     }
 
     bool RSM_Init(const xRsmConfig & Config, xLogger * LoggerPtr)
@@ -42,7 +65,6 @@ ZEC_NS
 
         _Config = Config;
         _LoggerPtr = LoggerPtr;
-
         // setup libevent
         do {
             event_set_fatal_callback(&OnLibeventFatalError);
@@ -50,6 +72,9 @@ ZEC_NS
                 goto LABEL_ERROR;
             }
             if (!(_EventBase = event_base_new())) {
+                goto LABEL_ERROR;
+            }
+            if (!(_EventTicker = evtimer_new(_EventBase, OnTimerTick, _EventBase))) {
                 goto LABEL_ERROR;
             }
         } while(false);
@@ -71,13 +96,13 @@ ZEC_NS
             if (1 == evutil_inet_pton(AF_INET, _Config.EntryIp.c_str(), &Addr.Ipv4)) {
                 Addr.Ipv4.sin_family = AF_INET;
                 Addr.Ipv4.sin_port = htons(_Config.EntryPort);
-                _ConnectionListener = evconnlistener_new_bind(_EventBase, &ProxyEntryCallback, nullptr, 
+                _ConnectionListener = evconnlistener_new_bind(_EventBase, &ServerEntryCallback, nullptr, 
                     0, LEV_OPT_CLOSE_ON_FREE | LEV_OPT_REUSEABLE, 
                     Addr.GetAddr(), sizeof(Addr.Ipv4));
             } else if (1 == evutil_inet_pton(AF_INET6, _Config.EntryIp.c_str(), &Addr.Ipv6)) {
                 Addr.Ipv6.sin6_family = AF_INET6;
                 Addr.Ipv6.sin6_port = htons(_Config.EntryPort);
-                _ConnectionListener = evconnlistener_new_bind(_EventBase, &ProxyEntryCallback, nullptr, 
+                _ConnectionListener = evconnlistener_new_bind(_EventBase, &ServerEntryCallback, nullptr, 
                     0, LEV_OPT_CLOSE_ON_FREE | LEV_OPT_REUSEABLE, 
                     Addr.GetAddr(), sizeof(Addr.Ipv6));
             } else {
@@ -98,6 +123,9 @@ ZEC_NS
         }
         if (_HttpConfigListener) {
             evhttp_free(Steal(_HttpConfigListener));
+        }
+        if (_EventTicker) {
+            event_free(Steal(_EventTicker));
         }
         if (_EventBase) {
             event_base_free(Steal(_EventBase));
@@ -121,6 +149,7 @@ ZEC_NS
 
         evconnlistener_free(Steal(_ConnectionListener));
         evhttp_free(Steal(_HttpConfigListener));
+        event_free(Steal(_EventTicker));
         event_base_free(Steal(_EventBase));
         libevent_global_shutdown();
         _LoggerPtr = NonLoggerPtr;
@@ -133,9 +162,47 @@ ZEC_NS
         return _LoggerPtr;
     }
 
+    xTimer StatisticTimer;
+    static void RSM_LogStatistics()
+    {
+        if (!StatisticTimer.TestAndTag(60s)) {
+            return; 
+        }
+        RSM_LogI("StatisticTimeout: "
+            "ConnectionsPerMinute=%u, "
+            "TotalExactTargetRules=%u, "
+            "TotalExactSourceRules=%u, "
+            "TotalIpOnlyTargetRules=%u, "
+            "TotalIpOnlySourceRules=%u, ", 
+            (unsigned int)ConnectionsPerMinute.exchange(0),
+            (unsigned int)TotalExactTargetRules,
+            (unsigned int)TotalExactSourceRules,
+            (unsigned int)TotalIpOnlyTargetRules,
+            (unsigned int)TotalIpOnlySourceRules
+        );
+    }
+
+    static void RSM_ResetTimer()
+    {
+        assert(_EventTicker);
+        timeval tv { 0, 250'000 };
+        evtimer_add(_EventTicker, &tv);
+    } 
+
     void RSM_Run()
     {
-        event_base_dispatch(_EventBase);
+        _KeepRunning = true;
+        while(_KeepRunning) {
+            RSM_ResetTimer();
+            event_base_loop(_EventBase, EVLOOP_ONCE);
+            RSM_ClearTimeoutRules();
+            RSM_LogStatistics();
+        }
+    }
+
+    void RSM_Stop()
+    {
+        _KeepRunning = false;
     }
 
 }

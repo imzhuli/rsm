@@ -9,7 +9,9 @@ ZEC_NS
     ZEC_API bool RSM_Init(const xRsmConfig & Config = {}, xLogger * LoggerPtr = NonLoggerPtr); 
     ZEC_API bool RSM_IsReady(); 
     ZEC_API void RSM_Run();
+    ZEC_API void RSM_Stop();
     ZEC_API void RSM_Clean();
+    ZEC_API const xRsmConfig & RSM_GetConfig();
 
     ZEC_API xLogger * RSM_GetLogger();
 
