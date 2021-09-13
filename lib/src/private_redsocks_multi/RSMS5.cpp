@@ -51,27 +51,6 @@ ZEC_NS
         return RequestIdMethod();
     }
 
-    bool xS5ProxyDelegate::RequestIdMethod()
-    {
-        if (!_Auth()) {
-            RSM_LogD("ProxyWithNoAuth");
-            if (evbuffer_add(_ProxyOutputShadow, S5_Id_Method_NoAuth, Length(S5_Id_Method_NoAuth))) {
-                InnerClean();
-                return false;
-            }
-            _State = eRsmS5State::Id_Method_NoAuth;
-            return true;
-        }
-
-        RSM_LogD("ProxyWithUserPass");
-        if (evbuffer_add(_ProxyOutputShadow, S5_Id_Method_UserPass, Length(S5_Id_Method_UserPass))) {
-            InnerClean();
-            return false;
-        }
-        _State = eRsmS5State::Id_Method_UserPass;
-        return true;
-    }
-
     bool xS5ProxyDelegate::OnProxyData()
     {
         switch (_State) {
@@ -99,6 +78,27 @@ ZEC_NS
         return false;
     }
 
+    bool xS5ProxyDelegate::RequestIdMethod()
+    {
+        if (!_Auth()) {
+            RSM_LogD("ProxyWithNoAuth");
+            if (evbuffer_add(_ProxyOutputShadow, S5_Id_Method_NoAuth, Length(S5_Id_Method_NoAuth))) {
+                InnerClean();
+                return false;
+            }
+            _State = eRsmS5State::Id_Method_NoAuth;
+            return true;
+        }
+
+        RSM_LogD("ProxyWithUserPass");
+        if (evbuffer_add(_ProxyOutputShadow, S5_Id_Method_UserPass, Length(S5_Id_Method_UserPass))) {
+            InnerClean();
+            return false;
+        }
+        _State = eRsmS5State::Id_Method_UserPass;
+        return true;
+    }
+
     bool xS5ProxyDelegate::OnIdMethodNoAuthResp()
     {
         ubyte Buffer[2] = {};
@@ -121,12 +121,22 @@ ZEC_NS
             return true;
         }
         evbuffer_remove(_ProxyInputShadow, Buffer, 2);
-        if (Buffer[0] != 0x05 || Buffer[1] != 0x02) {
-            RSM_LogE("ProxyAuthError");
+
+        if (Buffer[0] != 0x05) {
             InnerClean();
             return false;
         }
+        if (Buffer[1] == 0x00) {
+            return RequestProxyConnect();
+        }
+        if (Buffer[1] != 0x02) {
+            RSM_LogE("Invalid Auth Method");
+            InnerClean();
+            return false;
+        }
+
         RSM_LogE("Not implemented");
+        InnerClean();
         return false;
     }
 

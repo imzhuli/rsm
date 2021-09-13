@@ -52,6 +52,13 @@ ZEC_NS
                 { Addr },
                 { .Timeout = ExpireStr ? (uint64_t)atol(ExpireStr) : RsmProxyExpire }
             };
+
+            const char * ProxyUser = evhttp_find_header(&Queries, "user");
+            const char * ProxyPass = evhttp_find_header(&Queries, "pass");
+            if (ProxyUser && ProxyPass) {
+                Rule.Sock5Proxy.Auth = xRsmProxyAuth{ ProxyUser, ProxyPass };
+            }
+
             if (!RSM_SetProxyRule(std::move(Rule), SockAddrPtr)) {
                 evhttp_send_error(Request, HTTP_BADREQUEST, "Blacklist");
                 return;
