@@ -93,7 +93,7 @@ ZEC_NS
                 goto LABEL_ERROR;
             }
             evhttp_set_timeout(_HttpConfigListener, 1);
-            evhttp_set_gencb(_HttpConfigListener, HttpConfigCallback, nullptr);
+            evhttp_set_gencb(_HttpConfigListener, RsmHttpConfigCallback, nullptr);
         } while(false);
 
         // connection listener
@@ -179,7 +179,7 @@ ZEC_NS
     xTimer StatisticTimer;
     static void RSM_LogStatistics()
     {
-        if (!StatisticTimer.TestAndTag(10s)) {
+        if (!StatisticTimer.TestAndTag(60s)) {
             return;
         }
         RSM_LogI("StatisticTimeout: "

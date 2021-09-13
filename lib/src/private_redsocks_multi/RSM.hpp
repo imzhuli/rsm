@@ -1,6 +1,5 @@
 #pragma once
 #include "./Base/RSMBase.hpp"
-#include <redsocks_multi/RSM.hpp>
 
 ZEC_NS
 {

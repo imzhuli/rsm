@@ -1,6 +1,5 @@
 #include "./RSMConfig.hpp"
 #include "./RSMRules.hpp"
-#include <redsocks_multi/RSM.hpp>
 #include <zec/String.hpp>
 
 #include <event2/http.h>
@@ -10,7 +9,7 @@
 ZEC_NS
 {
 
-    void HttpConfigCallback(evhttp_request * Request, void *ContextPtr)
+    void RsmHttpConfigCallback(evhttp_request * Request, void *ContextPtr)
     {
         auto OutputHeaders = evhttp_request_get_output_headers(Request);
         evhttp_add_header(OutputHeaders, "Connection", "close");
@@ -41,6 +40,7 @@ ZEC_NS
             }
             auto ProxyPort = (uint16_t)atol(ProxyPortStr);
 
+            const char * ExpireStr = evhttp_find_header(&Queries, "expire");
             xRsmAddr Addr;
             if (!Addr.From(ProxyIpStr, ProxyPort)) {
                 evhttp_send_error(Request, HTTP_INTERNAL, "ProxyAddressError");
@@ -48,17 +48,20 @@ ZEC_NS
             }
 
             auto SockAddrPtr = evhttp_connection_get_addr(evhttp_request_get_connection(Request));
-            auto IpOnlySourceKey = RSM_MakeIpOnlyAddressKey(SockAddrPtr);
-            RSM_LogD("ConfigSourceAddr: %s", StrToHex(IpOnlySourceKey).c_str());
-
             xRsmRule Rule = {
                 { Addr },
-                { .Timeout = 60 }
+                { .Timeout = ExpireStr ? (uint64_t)atol(ExpireStr) : RsmProxyExpire }
             };
             if (!RSM_SetProxyRule(std::move(Rule), SockAddrPtr)) {
                 evhttp_send_error(Request, HTTP_BADREQUEST, "Blacklist");
                 return;
             }
+            evhttp_send_reply(Request, HTTP_OK, "Accepted", nullptr);
+            return;
+        }
+
+        else if (0 == strcmp(Path, "/op_auto_rm_proxy")) {
+            RSM_UnsetProxyRule(evhttp_connection_get_addr(evhttp_request_get_connection(Request)));
             evhttp_send_reply(Request, HTTP_OK, "Accepted", nullptr);
             return;
         }

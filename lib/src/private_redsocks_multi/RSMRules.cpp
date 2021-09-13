@@ -1,5 +1,4 @@
 #include "./RSMRules.hpp"
-#include <redsocks_multi/RSM.hpp>
 #include <zec/String.hpp>
 #include <zec/Util/Chrono.hpp>
 #include <unordered_map>
@@ -16,14 +15,12 @@ ZEC_NS
             auto RealAddrPtr = reinterpret_cast<const sockaddr_in *>(AddrPtr);
             std::string Ret { (const char *)&RealAddrPtr->sin_addr, sizeof(sockaddr_in::sin_addr) };
             Ret.append((const char *)&(uint16_t&)RealAddrPtr->sin_port, 2);
-            RSM_LogD("MakeExactKey:%s", StrToHex(Ret).c_str());
             return Ret;
         }
         else if (AF_INET6 == AddrPtr->sa_family) {
             auto RealAddrPtr = reinterpret_cast<const sockaddr_in6 *>(AddrPtr);
             std::string Ret { (const char *)&RealAddrPtr->sin6_addr, sizeof(sockaddr_in6::sin6_addr ) };
             Ret.append((const char *)&(uint16_t&)RealAddrPtr->sin6_port, 2);
-            RSM_LogD("MakeExactKey:%s", StrToHex(Ret).c_str());
             return Ret;
         }
         return {};
@@ -35,14 +32,12 @@ ZEC_NS
             auto RealAddrPtr = reinterpret_cast<const sockaddr_in *>(AddrPtr);
             std::string Ret { (const char *)&RealAddrPtr->sin_addr, sizeof(sockaddr_in::sin_addr) };
             Ret.append((const char*)X2Ptr((uint16_t)0), 2);
-            RSM_LogD("MakeIpOnlyKey:%s", StrToHex(Ret).c_str());
             return Ret;
         }
         else if (AF_INET6 == AddrPtr->sa_family) {
             auto RealAddrPtr = reinterpret_cast<const sockaddr_in6 *>(AddrPtr);
             std::string Ret { (const char *)&RealAddrPtr->sin6_addr, sizeof(sockaddr_in6::sin6_addr ) };
             Ret.append((const char*)X2Ptr((uint16_t)0), 2);
-            RSM_LogD("MakeIpOnlyKey:%s", StrToHex(Ret).c_str());
             return Ret;
         }
         return {};

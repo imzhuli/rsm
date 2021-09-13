@@ -1,17 +1,12 @@
 #pragma once
 #include "./Base/RSMBase.hpp"
 #include "./RSMConfig.hpp"
+#include "./RSMS5.hpp"
 #include <zec/Util/Chrono.hpp>
 #include <string>
 
 ZEC_NS
 {
-
-	struct xRsmProxyAuth
-	{
-		std::string Username;
-		std::string Password;
-	};
 
 	struct xRsmS5Proxy
 	{

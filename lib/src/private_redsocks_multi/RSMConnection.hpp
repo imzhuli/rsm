@@ -1,5 +1,6 @@
 #pragma once
 #include "./Base/RSMBase.hpp"
+#include "./RSMS5.hpp"
 #include "./RSMRules.hpp"
 
 ZEC_NS
@@ -29,15 +30,8 @@ ZEC_NS
     , xNonCopyable
     {
     public:
-        enum struct eState {
-            Inited = 0,
-            Connecting,
-            Authorization,
-            Established,
-            Closed,
-        };
-
-        ZEC_PRIVATE_MEMBER bool Connect(event_base * EventBasePtr, evutil_socket_t && ClientSocketFd, const xRsmS5Proxy& Rule);
+        ZEC_PRIVATE_MEMBER bool Connect(event_base * EventBasePtr, evutil_socket_t && ClientSocketFd,
+            const xRsmS5Proxy& Rule, const xRsmAddr &TargetAddr);
         ZEC_PRIVATE_MEMBER void Disconnect();
 
     private:
@@ -48,11 +42,11 @@ ZEC_NS
         ZEC_PRIVATE_MEMBER void OnProxyDisconnected();
         ZEC_PRIVATE_MEMBER void OnClientDisconnected();
 
-        eState State = eState::Inited;
-        xOptional<xRsmProxyAuth> Auth;
-
         bufferevent * ClientEventPtr = nullptr;
         bufferevent * ProxyEventPtr = nullptr;
+
+        xS5ProxyDelegate ProxyDelegate;
+        bool IsOpen = false;
     };
 
 }

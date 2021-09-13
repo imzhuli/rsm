@@ -14,19 +14,21 @@ ZEC_NS
         (evconnlistener * Listener, evutil_socket_t SocketFd, sockaddr * SourceAddr, int AddrLen, void *ContextPtr)
     {
         ConnectionsPerMinute.fetch_add(1);
-        xRsmAddr RsmAddr;
-        if (GetOriginalTarget(SocketFd, xRef(RsmAddr))) {
-            RSM_LogD("OriginConnectionTo: %s", StrToHex(RSM_MakeExactAddressKey(&RsmAddr.SockAddr)).c_str());
+        xRsmAddr RsmTargetAddr;
+        if (!Rsm_GetOriginalTarget(SocketFd, xRef(RsmTargetAddr))) {
+            RSM_LogE("Failed to GetOriginalTargetAddr");
+            evutil_closesocket(SocketFd);
+            return;
         }
-        auto RsmRulePtr = RSM_GetProxyRule(SourceAddr, &RsmAddr.SockAddr);
+        auto RsmRulePtr = RSM_GetProxyRule(SourceAddr, &RsmTargetAddr.SockAddr);
         if (!RsmRulePtr) {
-            RSM_LogI("NoProxyRule Found!");
+            RSM_LogE("NoProxyRule Found!");
             evutil_closesocket(SocketFd);
             return;
         }
         // setup 2-way connection:
         auto ConnectionPtr = new xRsmProxyConnection();
-        if (!ConnectionPtr->Connect(RSM_GetBase(), Steal(SocketFd, -1), RsmRulePtr->Sock5Proxy)) {
+        if (!ConnectionPtr->Connect(RSM_GetBase(), Steal(SocketFd, -1), RsmRulePtr->Sock5Proxy, RsmTargetAddr)) {
             delete ConnectionPtr;
             return;
         }
@@ -34,50 +36,41 @@ ZEC_NS
 
     void xRsmProxyConnectionOperator::ClientReadCallback(struct bufferevent * bev, void * ContextPtr)
     {
-        RSM_LogD("ClientReadCallback");
+        auto ProxyConnectionPtr = (xRsmProxyConnection *)ContextPtr;
+        if (!ProxyConnectionPtr->ProxyDelegate.OnClientData()) {
+            ProxyConnectionPtr->OnProxyDisconnected();
+        }
     }
 
     void xRsmProxyConnectionOperator::ClientEventCallback(struct bufferevent * bev, short events, void * ContextPtr)
     {
-        RSM_LogD("ClientEventCallback: event=%x", (int)events);
         auto ProxyConnectionPtr = (xRsmProxyConnection *)ContextPtr;
         if (events & BEV_EVENT_CONNECTED) {
             RSM_LogD("Unexpected event on client connection");
             return;
         }
-        RSM_LogD("Client disconnected: %p", ContextPtr);
-        ProxyConnectionPtr->Disconnect();
+        RSM_LogD("Client disconnected: %p, Event=%x", ContextPtr, (int)events);
         ProxyConnectionPtr->OnClientDisconnected();
-        DeferDelete(ProxyConnectionPtr);
     }
 
     void xRsmProxyConnectionOperator::ProxyReadCallback(struct bufferevent * bev, void * ContextPtr)
     {
-        RSM_LogD("ProxyReadCallback");
-        // /* This callback is invoked when there is data to read on bev. */
-        // struct evbuffer *input = bufferevent_get_input(bev);
-        // struct evbuffer *output = bufferevent_get_output(bev);
-
-        // ++total_messages_read;
-        // total_bytes_read += evbuffer_get_length(input);
-
-        // /* Copy all the data from the input buffer to the output buffer. */
-        // evbuffer_add_buffer(output, input);
+        auto ProxyConnectionPtr = (xRsmProxyConnection *)ContextPtr;
+        if (!ProxyConnectionPtr->ProxyDelegate.OnProxyData()) {
+            ProxyConnectionPtr->OnProxyDisconnected();
+        }
     }
 
     void xRsmProxyConnectionOperator::ProxyEventCallback(struct bufferevent * bev, short events, void * ContextPtr)
     {
-        RSM_LogD("ProxyReadCallback");
         auto ProxyConnectionPtr = (xRsmProxyConnection *)ContextPtr;
         if (events & BEV_EVENT_CONNECTED) {
             RSM_LogD("Proxy connected: %p", ContextPtr);
             ProxyConnectionPtr->OnProxyConnected();
         }
         else {
-            RSM_LogD("Proxy disconnected: %p", ContextPtr);
-            ProxyConnectionPtr->Disconnect();
+            RSM_LogD("Proxy connection peer closed: %p, Event=%x", ContextPtr, (int)events);
             ProxyConnectionPtr->OnProxyDisconnected();
-            DeferDelete(ProxyConnectionPtr);
         }
     }
 
@@ -93,9 +86,8 @@ ZEC_NS
         }
     }
 
-    bool xRsmProxyConnection::Connect(event_base * EventBasePtr, evutil_socket_t && ClientSocketFd, const xRsmS5Proxy& Proxy)
+    bool xRsmProxyConnection::Connect(event_base * EventBasePtr, evutil_socket_t && ClientSocketFd, const xRsmS5Proxy& Proxy, const xRsmAddr &TargetAddr)
     {
-        assert(State == eState::Inited);
         assert(EventBasePtr);
         do {
             if (!(ClientEventPtr = bufferevent_socket_new(EventBasePtr, ClientSocketFd, BEV_OPT_DEFER_CALLBACKS | BEV_OPT_CLOSE_ON_FREE))) {
@@ -128,7 +120,15 @@ ZEC_NS
             }
         } while(false);
 
+        do {
+            if (!ProxyDelegate.Init(ClientEventPtr, ProxyEventPtr, TargetAddr, Proxy.Auth)) {
+                goto LABEL_ERROR;
+            }
+
+        } while(false);
+
         ++TotalConnections;
+        IsOpen = true;
         return true;
 
     LABEL_ERROR:
@@ -138,19 +138,17 @@ ZEC_NS
         if (ClientEventPtr) {
             bufferevent_free(Steal(ClientEventPtr));
         }
-        State = eState::Closed;
         return false;
     }
 
     void xRsmProxyConnection::Disconnect()
     {
-        if (State == eState::Closed) {
+        if (!Steal(IsOpen)) {
             return;
         }
-        assert(ProxyEventPtr);
+        ProxyDelegate.Clean();
         bufferevent_free(Steal(ProxyEventPtr));
         bufferevent_free(Steal(ClientEventPtr));
-        State = eState::Closed;
         --TotalConnections;
     }
 
@@ -161,14 +159,22 @@ ZEC_NS
 
     void xRsmProxyConnection::OnProxyConnected()
     {
+        if (!ProxyDelegate.OnProxyConnected()) {
+            Disconnect();
+            xRsmProxyConnectionOperator::DeferDelete(this);
+        }
     }
 
     void xRsmProxyConnection::OnProxyDisconnected()
     {
+        Disconnect();
+        xRsmProxyConnectionOperator::DeferDelete(this);
     }
 
     void xRsmProxyConnection::OnClientDisconnected()
     {
+        Disconnect();
+        xRsmProxyConnectionOperator::DeferDelete(this);
     }
 
 }

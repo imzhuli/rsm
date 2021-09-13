@@ -5,9 +5,10 @@
 ZEC_NS
 {
 
-	static inline constexpr const int TcpKeepaliveTime = 7200;
-	static inline constexpr const int TcpKeepaliveProbes = 9;
-	static inline constexpr const int TcpKeepaliveInterval = 75;
+	static inline constexpr const int RsmTcpKeepaliveTime = 7200;
+	static inline constexpr const int RsmTcpKeepaliveProbes = 9;
+	static inline constexpr const int RsmTcpKeepaliveInterval = 75;
+    static inline constexpr const uint64_t RsmProxyExpire = 300;
 
     enum struct xRsmRuleType // the larger the value is, the higher priority the Rule is of
     {
