@@ -8,6 +8,15 @@
 
 ZEC_NS
 {
+    static const char ResponseOk[] = "{ \"status\": 200 }";
+    static void SendHttpOk(evhttp_request * Request) {
+        auto OutputHeaders = evhttp_request_get_output_headers(Request);
+        evhttp_add_header(OutputHeaders, "Content-Type", "application/json");
+        evbuffer * ResponseBuffer = evbuffer_new();
+        evbuffer_add(ResponseBuffer, ResponseOk, SafeLength(ResponseOk));
+        evhttp_send_reply(Request, HTTP_OK, "OK", ResponseBuffer);
+        evbuffer_free(ResponseBuffer);
+    }
 
     void RsmHttpConfigCallback(evhttp_request * Request, void *ContextPtr)
     {
@@ -50,7 +59,7 @@ ZEC_NS
             auto SockAddrPtr = evhttp_connection_get_addr(evhttp_request_get_connection(Request));
             xRsmRule Rule = {
                 { Addr },
-                { .Timeout = ExpireStr ? (uint64_t)atol(ExpireStr) : RsmProxyExpire }
+                { .Timeout = ExpireStr ? (uint64_t)atol(ExpireStr) : RSM_GetConfig().ProxyExpire }
             };
 
             const char * ProxyUser = evhttp_find_header(&Queries, "user");
@@ -63,13 +72,13 @@ ZEC_NS
                 evhttp_send_error(Request, HTTP_BADREQUEST, "Blacklist");
                 return;
             }
-            evhttp_send_reply(Request, HTTP_OK, "Accepted", nullptr);
+            SendHttpOk(Request);
             return;
         }
 
         else if (0 == strcmp(Path, "/op_auto_rm_proxy")) {
             RSM_UnsetProxyRule(evhttp_connection_get_addr(evhttp_request_get_connection(Request)));
-            evhttp_send_reply(Request, HTTP_OK, "Accepted", nullptr);
+            SendHttpOk(Request);
             return;
         }
 

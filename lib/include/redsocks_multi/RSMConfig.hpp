@@ -26,6 +26,8 @@ ZEC_NS
         std::string EntryIp    = "192.168.100.1";
         uint16_t    EntryPort  = 11111;
 
+        uint32_t    ProxyExpire = RsmProxyExpire;
+
         bool IpOnlySourceRule = true;
         bool ExactSourceRule = false;
         bool IpOnlyTargetRule = false;
