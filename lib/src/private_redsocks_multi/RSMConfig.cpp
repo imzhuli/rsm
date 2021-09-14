@@ -12,6 +12,7 @@ ZEC_NS
     static void SendHttpOk(evhttp_request * Request) {
         auto OutputHeaders = evhttp_request_get_output_headers(Request);
         evhttp_add_header(OutputHeaders, "Content-Type", "application/json");
+        evhttp_add_header(OutputHeaders, "Connection", "close");
         evbuffer * ResponseBuffer = evbuffer_new();
         evbuffer_add(ResponseBuffer, ResponseOk, SafeLength(ResponseOk));
         evhttp_send_reply(Request, HTTP_OK, "OK", ResponseBuffer);
@@ -20,9 +21,6 @@ ZEC_NS
 
     void RsmHttpConfigCallback(evhttp_request * Request, void *ContextPtr)
     {
-        auto OutputHeaders = evhttp_request_get_output_headers(Request);
-        evhttp_add_header(OutputHeaders, "Connection", "close");
-
         auto Uri = evhttp_request_get_evhttp_uri(Request);
         auto Path = evhttp_uri_get_path(Uri);
         if (!Path) {
