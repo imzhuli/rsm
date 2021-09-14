@@ -81,7 +81,6 @@ ZEC_NS
     bool xS5ProxyDelegate::RequestIdMethod()
     {
         if (!_Auth()) {
-            RSM_LogD("ProxyWithNoAuth");
             if (evbuffer_add(_ProxyOutputShadow, S5_Id_Method_NoAuth, Length(S5_Id_Method_NoAuth))) {
                 InnerClean();
                 return false;
@@ -90,7 +89,6 @@ ZEC_NS
             return true;
         }
 
-        RSM_LogD("ProxyWithUserPass");
         if (evbuffer_add(_ProxyOutputShadow, S5_Id_Method_UserPass, Length(S5_Id_Method_UserPass))) {
             InnerClean();
             return false;
@@ -223,18 +221,24 @@ ZEC_NS
                     return false;
                 }
             }
-            evbuffer_remove_buffer(_ClientInputShadow, _ClientTempBuffer, evbuffer_get_length(_ClientInputShadow));
+            auto DataLength = evbuffer_get_length(_ClientInputShadow);
+            evbuffer_remove_buffer(_ClientInputShadow, _ClientTempBuffer, DataLength);
+            PeriodDataOut += (uint64_t)DataLength;
             return true;
         }
 
         assert(!_ClientTempBuffer);
-        evbuffer_remove_buffer(_ClientInputShadow, _ProxyOutputShadow, evbuffer_get_length(_ClientInputShadow));
+        auto DataLength = evbuffer_get_length(_ClientInputShadow);
+        evbuffer_remove_buffer(_ClientInputShadow, _ProxyOutputShadow, DataLength);
+        PeriodDataOut += (uint64_t)DataLength;
         return true;
     }
 
     bool xS5ProxyDelegate::OnProxyPayloadData()
     {
+        auto DataLength = evbuffer_get_length(_ProxyInputShadow);
         evbuffer_remove_buffer(_ProxyInputShadow, _ClientOutputShadow, evbuffer_get_length(_ProxyInputShadow));
+        PeriodDataIn += (uint64_t)DataLength;
         return true;
     }
 

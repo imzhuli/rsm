@@ -35,12 +35,10 @@ ZEC_NS
     std::atomic_uint64_t TotalIpOnlyTargetRules = 0;
     std::atomic_uint64_t TotalIpOnlySourceRules = 0;
 
-    std::atomic_uint64_t ConnectionsPerMinute = 0;
+    std::atomic_uint64_t PeriodConnections = 0;
+    std::atomic_uint64_t PeriodDataIn = 0;
+    std::atomic_uint64_t PeriodDataOut = 0;
     std::atomic_uint64_t TotalConnections;
-    std::atomic_uint64_t DataInPerMinute = 0;
-    std::atomic_uint64_t DataOutPerMinute = 0;
-    std::atomic_uint64_t TotalDataIn;
-    std::atomic_uint64_t TotalDataOut;
 
     static void OnLibeventFatalError(int err)
     {
@@ -183,18 +181,22 @@ ZEC_NS
             return;
         }
         RSM_LogI("StatisticTimeout: "
-            "ConnectionsPerMinute=%u, "
+            "PeriodConnections=%u, "
             "TotalConnections=%u, "
-            "TotalExactTargetRules=%u, "
-            "TotalExactSourceRules=%u, "
-            "TotalIpOnlyTargetRules=%u, "
-            "TotalIpOnlySourceRules=%u, ",
-            (unsigned int)ConnectionsPerMinute.exchange(0),
+            // "TotalExactTargetRules=%u, "
+            // "TotalExactSourceRules=%u, "
+            // "TotalIpOnlyTargetRules=%u, "
+            "TotalIpOnlySourceRules=%u, "
+            "DataInPerMinute=%" PRIu64 ", "
+            "DataOutPerMinute=%" PRIu64 ", ",
+            (unsigned int)PeriodConnections.exchange(0),
             (unsigned int)TotalConnections,
-            (unsigned int)TotalExactTargetRules,
-            (unsigned int)TotalExactSourceRules,
-            (unsigned int)TotalIpOnlyTargetRules,
-            (unsigned int)TotalIpOnlySourceRules
+            // (unsigned int)TotalExactTargetRules,
+            // (unsigned int)TotalExactSourceRules,
+            // (unsigned int)TotalIpOnlyTargetRules,
+            (unsigned int)TotalIpOnlySourceRules,
+            PeriodDataIn.exchange(0),
+            PeriodDataOut.exchange(0)
         );
     }
 

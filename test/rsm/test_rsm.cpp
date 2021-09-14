@@ -6,10 +6,10 @@ using namespace zec;
 
 static xSimpleLogger Logger;
 
-int main(int, char **) 
+int main(int, char **)
 {
     auto Guard = xResourceGuard{ Logger };
-    
+
     xRsmConfig Config {};
     RSM_Init(Config, &Logger);
 

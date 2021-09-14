@@ -13,7 +13,7 @@ ZEC_NS
     void xRsmProxyConnectionOperator::ServerEntryCallback
         (evconnlistener * Listener, evutil_socket_t SocketFd, sockaddr * SourceAddr, int AddrLen, void *ContextPtr)
     {
-        ConnectionsPerMinute.fetch_add(1);
+        PeriodConnections.fetch_add(1);
         xRsmAddr RsmTargetAddr;
         if (!Rsm_GetOriginalTarget(SocketFd, xRef(RsmTargetAddr))) {
             RSM_LogE("Failed to GetOriginalTargetAddr");
@@ -22,7 +22,7 @@ ZEC_NS
         }
         auto RsmRulePtr = RSM_GetProxyRule(SourceAddr, &RsmTargetAddr.SockAddr);
         if (!RsmRulePtr) {
-            RSM_LogE("NoProxyRule Found!");
+            // RSM_LogD("NoProxyRule Found!");
             evutil_closesocket(SocketFd);
             return;
         }
@@ -46,10 +46,10 @@ ZEC_NS
     {
         auto ProxyConnectionPtr = (xRsmProxyConnection *)ContextPtr;
         if (events & BEV_EVENT_CONNECTED) {
-            RSM_LogD("Unexpected event on client connection");
+            RSM_LogE("Unexpected event on client connection");
             return;
         }
-        RSM_LogD("Client disconnected: %p, Event=%x", ContextPtr, (int)events);
+        // RSM_LogD("Client disconnected: %p, Event=%x", ContextPtr, (int)events);
         ProxyConnectionPtr->OnClientDisconnected();
     }
 
@@ -65,11 +65,11 @@ ZEC_NS
     {
         auto ProxyConnectionPtr = (xRsmProxyConnection *)ContextPtr;
         if (events & BEV_EVENT_CONNECTED) {
-            RSM_LogD("Proxy connected: %p", ContextPtr);
+            // RSM_LogD("Proxy connected: %p", ContextPtr);
             ProxyConnectionPtr->OnProxyConnected();
         }
         else {
-            RSM_LogD("Proxy connection peer closed: %p, Event=%x", ContextPtr, (int)events);
+            // RSM_LogD("Proxy connection peer closed: %p, Event=%x", ContextPtr, (int)events);
             ProxyConnectionPtr->OnProxyDisconnected();
         }
     }

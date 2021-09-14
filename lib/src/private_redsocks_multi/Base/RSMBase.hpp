@@ -46,9 +46,9 @@ ZEC_NS
     ZEC_PRIVATE std::atomic_uint64_t TotalIpOnlyTargetRules;
     ZEC_PRIVATE std::atomic_uint64_t TotalIpOnlySourceRules;
 
-    ZEC_PRIVATE std::atomic_uint64_t ConnectionsPerMinute;
+    ZEC_PRIVATE std::atomic_uint64_t PeriodConnections;
+    ZEC_PRIVATE std::atomic_uint64_t PeriodDataIn;
+    ZEC_PRIVATE std::atomic_uint64_t PeriodDataOut;
     ZEC_PRIVATE std::atomic_uint64_t TotalConnections;
-    ZEC_PRIVATE std::atomic_uint64_t TotalDataIn;
-    ZEC_PRIVATE std::atomic_uint64_t TotalDataOut;
 
 }

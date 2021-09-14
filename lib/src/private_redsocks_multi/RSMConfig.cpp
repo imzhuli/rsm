@@ -64,7 +64,7 @@ ZEC_NS
 
             const char * ProxyUser = evhttp_find_header(&Queries, "user");
             const char * ProxyPass = evhttp_find_header(&Queries, "pass");
-            if (ProxyUser && ProxyPass) {
+            if (ProxyUser && ProxyUser[0] && ProxyPass && ProxyPass[0]) {
                 Rule.Sock5Proxy.Auth = xRsmProxyAuth{ ProxyUser, ProxyPass };
             }
 
