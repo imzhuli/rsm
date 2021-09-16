@@ -101,7 +101,7 @@ ZEC_NS
                 Addr.Ipv4.sin_family = AF_INET;
                 Addr.Ipv4.sin_port = htons(_Config.EntryPort);
                 _ConnectionListener = evconnlistener_new_bind(_EventBase, xRsmProxyConnectionOperator::ServerEntryCallback, nullptr,
-                    0, LEV_OPT_CLOSE_ON_FREE | LEV_OPT_REUSEABLE,
+                    0, LEV_OPT_CLOSE_ON_FREE | LEV_OPT_REUSEAntBLE,
                     Addr.GetSockAddr(), sizeof(Addr.Ipv4));
             } else if (1 == evutil_inet_pton(AF_INET6, _Config.EntryIp.c_str(), &Addr.Ipv6.sin6_addr)) {
                 Addr.Ipv6.sin6_family = AF_INET6;
