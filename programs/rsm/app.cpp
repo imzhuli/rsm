@@ -6,6 +6,8 @@
 #include <zec/Util/IniReader.hpp>
 #include <iostream>
 
+#include <signal.h>
+
 using namespace zec;
 using namespace std;
 
@@ -63,6 +65,7 @@ int main(int Argc, char **Argv)
     cout << "Config.ConfigPort=\'" << Config.ConfigPort << "\'" << endl;
     cout << "Config.ProxyExpire=\'" << Config.ProxyExpire << "\'" << endl;
 
+    signal(SIGPIPE, SIG_IGN);
     if (!RSM_Init(Config, &Logger)) {
         cerr << "Failed to init service" << endl;
         return -1;
