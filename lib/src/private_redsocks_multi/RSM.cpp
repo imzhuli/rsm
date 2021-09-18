@@ -68,7 +68,7 @@ ZEC_NS
         // setup libevent
         do {
             event_set_fatal_callback(&OnLibeventFatalError);
-            if (evthread_use_pthreads()) {
+            if (_Config.EnableLibeventMT && evthread_use_pthreads()) {
                 goto LABEL_ERROR;
             }
             if (!(_EventBase = event_base_new())) {
