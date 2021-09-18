@@ -69,7 +69,7 @@ ZEC_NS
     void xRsmProxyConnectionOperator::ProxyEventCallback(struct bufferevent * bev, short events, void * ContextPtr)
     {
         auto ProxyConnectionPtr = (xRsmProxyConnection *)ContextPtr;
-        if (events == BEV_EVENT_CONNECTED) {
+        if (events & BEV_EVENT_CONNECTED) {
             // RSM_LogD("Proxy connected: %p", ContextPtr);
             ProxyConnectionPtr->OnProxyConnected();
             return;
@@ -109,7 +109,7 @@ ZEC_NS
                 nullptr,
                 xRsmProxyConnectionOperator::ClientEventCallback,
                 this);
-            bufferevent_enable(ClientEventPtr, EV_READ);
+            bufferevent_enable(ClientEventPtr, EV_READ|EV_PERSIST);
 
         } while(false);
 
@@ -123,7 +123,7 @@ ZEC_NS
                 nullptr,
                 xRsmProxyConnectionOperator::ProxyEventCallback,
                 this);
-            if (bufferevent_enable(ProxyEventPtr, EV_READ)
+            if (bufferevent_enable(ProxyEventPtr, EV_READ|EV_PERSIST)
                  || bufferevent_socket_connect(ProxyEventPtr, Proxy.Addr.GetSockAddr(), (int)Proxy.Addr.GetSockAddrLen())
             ) {
                 goto LABEL_ERROR;
