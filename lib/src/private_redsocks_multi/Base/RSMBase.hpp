@@ -41,14 +41,32 @@ ZEC_NS
 
     ZEC_PRIVATE bool RSM_TestEqual(const sockaddr * Addr1, const sockaddr * Addr2);
 
-    ZEC_PRIVATE std::atomic_uint64_t TotalExactTargetRules;
-    ZEC_PRIVATE std::atomic_uint64_t TotalExactSourceRules;
-    ZEC_PRIVATE std::atomic_uint64_t TotalIpOnlyTargetRules;
-    ZEC_PRIVATE std::atomic_uint64_t TotalIpOnlySourceRules;
+#ifdef ZEC_LIBEVENT_MT
+    using StatisticCounter = std::atomic_uint64_t;
+#else
+    using StatisticCounter = uint64_t;
+#endif
 
-    ZEC_PRIVATE std::atomic_uint64_t PeriodConnections;
-    ZEC_PRIVATE std::atomic_uint64_t PeriodDataIn;
-    ZEC_PRIVATE std::atomic_uint64_t PeriodDataOut;
-    ZEC_PRIVATE std::atomic_uint64_t TotalConnections;
+    ZEC_PRIVATE StatisticCounter TotalExactTargetRules;
+    ZEC_PRIVATE StatisticCounter TotalExactSourceRules;
+    ZEC_PRIVATE StatisticCounter TotalIpOnlyTargetRules;
+    ZEC_PRIVATE StatisticCounter TotalIpOnlySourceRules;
+
+    ZEC_PRIVATE StatisticCounter PeriodConnections;
+    ZEC_PRIVATE StatisticCounter PeriodClientError;
+    ZEC_PRIVATE StatisticCounter PeriodProxyError;
+    ZEC_PRIVATE StatisticCounter PeriodClientClose;
+    ZEC_PRIVATE StatisticCounter PeriodProxyClose;
+    ZEC_PRIVATE StatisticCounter PeriodDataIn;
+    ZEC_PRIVATE StatisticCounter PeriodDataOut;
+    ZEC_PRIVATE StatisticCounter TotalConnections;
+
+    ZEC_INLINE auto RSM_GetAndReset(StatisticCounter & Counter) {
+    #ifdef ZEC_LIBEVENT_MT
+        return Counter.exchange(0);
+    #else
+        return Steal(Counter);
+    #endif
+    }
 
 }

@@ -30,15 +30,19 @@ ZEC_NS
 
     event_base * _EventBase = nullptr;
 
-    std::atomic_uint64_t TotalExactTargetRules = 0;
-    std::atomic_uint64_t TotalExactSourceRules = 0;
-    std::atomic_uint64_t TotalIpOnlyTargetRules = 0;
-    std::atomic_uint64_t TotalIpOnlySourceRules = 0;
+    StatisticCounter TotalExactTargetRules = 0;
+    StatisticCounter TotalExactSourceRules = 0;
+    StatisticCounter TotalIpOnlyTargetRules = 0;
+    StatisticCounter TotalIpOnlySourceRules = 0;
 
-    std::atomic_uint64_t PeriodConnections = 0;
-    std::atomic_uint64_t PeriodDataIn = 0;
-    std::atomic_uint64_t PeriodDataOut = 0;
-    std::atomic_uint64_t TotalConnections;
+    StatisticCounter PeriodConnections = 0;
+    StatisticCounter PeriodClientError = 0;
+    StatisticCounter PeriodProxyError = 0;
+    StatisticCounter PeriodClientClose = 0;
+    StatisticCounter PeriodProxyClose = 0;
+    StatisticCounter PeriodDataIn = 0;
+    StatisticCounter PeriodDataOut = 0;
+    StatisticCounter TotalConnections;
 
     static void OnLibeventFatalError(int err)
     {
@@ -68,9 +72,11 @@ ZEC_NS
         // setup libevent
         do {
             event_set_fatal_callback(&OnLibeventFatalError);
-            if (_Config.EnableLibeventMT && evthread_use_pthreads()) {
+            #ifdef ZEC_LIBEVENT_MT
+            if (evthread_use_pthreads()) {
                 goto LABEL_ERROR;
             }
+            #endif
             if (!(_EventBase = event_base_new())) {
                 goto LABEL_ERROR;
             }
@@ -181,22 +187,31 @@ ZEC_NS
             return;
         }
         RSM_LogI("StatisticTimeout: "
-            "PeriodConnections=%u, "
-            "TotalConnections=%u, "
+            "PeriodConnections=%" PRIu64 ", "
+            "TotalConnections=%"  PRIu64 ", "
+            "PeriodClientClose=%" PRIu64 ", "
+            "PeriodClientError=%" PRIu64 ", "
+            "PeriodProxyClose=%"  PRIu64 ", "
+            "PeriodProxyError=%"  PRIu64 ", "
             // "TotalExactTargetRules=%u, "
             // "TotalExactSourceRules=%u, "
             // "TotalIpOnlyTargetRules=%u, "
-            "TotalIpOnlySourceRules=%u, "
+            "TotalIpOnlySourceRules=%" PRIu64 ", "
             "DataInPerMinute=%" PRIu64 ", "
             "DataOutPerMinute=%" PRIu64 ", ",
-            (unsigned int)PeriodConnections.exchange(0),
-            (unsigned int)TotalConnections,
+            RSM_GetAndReset(PeriodConnections),
+            RSM_GetAndReset(TotalConnections),
+
+            RSM_GetAndReset(PeriodClientClose),
+            RSM_GetAndReset(PeriodClientError),
+            RSM_GetAndReset(PeriodProxyClose),
+            RSM_GetAndReset(PeriodProxyError),
             // (unsigned int)TotalExactTargetRules,
             // (unsigned int)TotalExactSourceRules,
             // (unsigned int)TotalIpOnlyTargetRules,
-            (unsigned int)TotalIpOnlySourceRules,
-            PeriodDataIn.exchange(0),
-            PeriodDataOut.exchange(0)
+            TotalIpOnlySourceRules,
+            RSM_GetAndReset(PeriodDataIn),
+            RSM_GetAndReset(PeriodDataOut)
         );
     }
 

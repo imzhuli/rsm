@@ -28,7 +28,6 @@ ZEC_NS
 
         uint32_t    ProxyExpire = RsmProxyExpire;
 
-        bool EnableLibeventMT = false;
         bool IpOnlySourceRule = true;
         bool ExactSourceRule = false;
         bool IpOnlyTargetRule = false;

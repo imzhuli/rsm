@@ -13,7 +13,7 @@ ZEC_NS
     void xRsmProxyConnectionOperator::ServerEntryCallback
         (evconnlistener * Listener, evutil_socket_t SocketFd, sockaddr * SourceAddr, int AddrLen, void *ContextPtr)
     {
-        PeriodConnections.fetch_add(1);
+        ++PeriodConnections;        
         xRsmAddr RsmTargetAddr;
         if (!Rsm_GetOriginalTarget(SocketFd, xRef(RsmTargetAddr))) {
             RSM_LogE("Failed to GetOriginalTargetAddr");
@@ -45,11 +45,16 @@ ZEC_NS
     void xRsmProxyConnectionOperator::ClientEventCallback(struct bufferevent * bev, short events, void * ContextPtr)
     {
         auto ProxyConnectionPtr = (xRsmProxyConnection *)ContextPtr;
-        if (events & BEV_EVENT_CONNECTED) {
-            RSM_LogE("Unexpected event on client connection");
-            return;
-        }
+        // if (events & BEV_EVENT_CONNECTED) {
+        //     RSM_LogE("Unexpected event on client connection");
+        //     return;
+        // }
         // RSM_LogD("Client disconnected: %p, Event=%x", ContextPtr, (int)events);
+        if (events & BEV_EVENT_EOF) {
+            ++PeriodClientClose;
+        } else {
+            ++PeriodClientError;
+        }
         ProxyConnectionPtr->OnClientDisconnected();
     }
 
@@ -64,14 +69,19 @@ ZEC_NS
     void xRsmProxyConnectionOperator::ProxyEventCallback(struct bufferevent * bev, short events, void * ContextPtr)
     {
         auto ProxyConnectionPtr = (xRsmProxyConnection *)ContextPtr;
-        if (events & BEV_EVENT_CONNECTED) {
+        if (events == BEV_EVENT_CONNECTED) {
             // RSM_LogD("Proxy connected: %p", ContextPtr);
             ProxyConnectionPtr->OnProxyConnected();
+            return;
         }
-        else {
-            // RSM_LogD("Proxy connection peer closed: %p, Event=%x", ContextPtr, (int)events);
-            ProxyConnectionPtr->OnProxyDisconnected();
+
+        // RSM_LogD("Proxy connection peer closed: %p, Event=%x", ContextPtr, (int)events);
+        if (events & BEV_EVENT_EOF) {
+            ++PeriodProxyClose;
+        } else {
+            ++PeriodProxyError;
         }
+        ProxyConnectionPtr->OnProxyDisconnected();        
     }
 
     void xRsmProxyConnectionOperator::DeferDelete(xRsmProxyConnection * ProxyConnectionPtr)
