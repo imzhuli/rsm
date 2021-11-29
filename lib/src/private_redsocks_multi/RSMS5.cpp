@@ -64,6 +64,9 @@ ZEC_NS
         case eRsmS5State::Id_Method_UserPass: {
             return OnIdMethodUserPassResp();
         }
+        case eRsmS5State::Id_Method_UserPassCheck: {
+            return OnIdMethodAuthResp();
+        }
         case eRsmS5State::ProxyConnect: {
             return OnConnectResp();
         }
@@ -133,9 +136,42 @@ ZEC_NS
             return false;
         }
 
-        RSM_LogE("Not implemented");
-        InnerClean();
-        return false;
+        if (!_Auth() || _Auth->Username.length() >= 255 || _Auth->Password.length() >= 255) {
+            RSM_LogE("Toolong username or password");
+            InnerClean();
+            return false;
+        }
+
+        ubyte OutBuffer[1024];
+        xStreamWriter W(OutBuffer);
+        W.W1(0x01);
+        W.W1(_Auth->Username.length());
+        W.W(_Auth->Username.data(), _Auth->Username.length());
+        W.W1(_Auth->Password.length());
+        W.W(_Auth->Password.data(), _Auth->Password.length());
+
+        if (evbuffer_add(_ProxyOutputShadow, OutBuffer, (int)W.Offset())) {
+            InnerClean();
+            return false;
+        }
+        _State = eRsmS5State::Id_Method_UserPassCheck;
+        return true;
+    }
+
+    bool xS5ProxyDelegate::OnIdMethodAuthResp()
+    {
+        ubyte Buffer[2] = {};
+        if (evbuffer_get_length(_ProxyInputShadow) < 2) {
+            return true;
+        }
+        evbuffer_remove(_ProxyInputShadow, Buffer, 2);
+        if (Buffer[0] != 0x01 || Buffer[1] != 0x00) { // auth failure
+            RSM_LogE("Auth Error");
+            InnerClean();
+            return false;
+        }
+        _State = eRsmS5State::Id_Method_AuthDone;
+        return RequestProxyConnect();
     }
 
     bool xS5ProxyDelegate::RequestProxyConnect()

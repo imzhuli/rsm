@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <algorithm>
+#include <limits>
 #include <new>
 
 ZEC_NS

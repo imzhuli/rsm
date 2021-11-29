@@ -10,6 +10,7 @@ ZEC_NS
         Init,
         Id_Method_NoAuth,
         Id_Method_UserPass,
+        Id_Method_UserPassCheck,
         Id_Method_AuthDone,
         ProxyConnect,
 
@@ -51,6 +52,7 @@ ZEC_NS
         ZEC_PRIVATE_MEMBER bool RequestIdMethod();
         ZEC_PRIVATE_MEMBER bool OnIdMethodNoAuthResp();
         ZEC_PRIVATE_MEMBER bool OnIdMethodUserPassResp();
+        ZEC_PRIVATE_MEMBER bool OnIdMethodAuthResp();
         ZEC_PRIVATE_MEMBER bool RequestProxyConnect();
         ZEC_PRIVATE_MEMBER bool OnConnectResp();
         ZEC_PRIVATE_MEMBER bool OnProxyPayloadData();

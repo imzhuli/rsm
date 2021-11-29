@@ -1,7 +1,7 @@
 #!/bin/sh
 
 set -e
-if [ -n $1 ];
+if [ -n "$1" ];
 then
     PARAL=$1
 else
