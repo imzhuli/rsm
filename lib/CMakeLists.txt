@@ -44,6 +44,7 @@ aux_source_directory(./src/private_zec_ext/Json                    ZEC_SRC)
 aux_source_directory(./src/private_zec_ext/Utility                 ZEC_SRC)
 
 aux_source_directory(./src/private_redsocks_multi/                 ZEC_SRC)
+aux_source_directory(./src/private_redsocks_multi/Base             ZEC_SRC)
 aux_source_directory(./src/private_redsocks_multi/NetFilter        ZEC_SRC)
 
 if (ZEC_OPTION_STATIC)

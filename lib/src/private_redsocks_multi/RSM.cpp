@@ -3,6 +3,11 @@
 #include "./RSM.hpp"
 #include "./RSMConnection.hpp"
 
+#include <iostream>
+using std::cout;
+using std::cerr;
+using std::endl;
+
 #include <atomic>
 #include <mutex>
 
@@ -21,7 +26,8 @@ ZEC_NS
     static std::atomic_bool    _Inited = false;
 
     static xRsmConfig          _Config;
-    static xLogger *           _LoggerPtr = NonLoggerPtr;
+    static xSimpleLogger       _SimpleLogger;
+    static xLogger *           _LoggerPtr = &_SimpleLogger;
 
     static std::atomic_bool    _KeepRunning = false;
     static evhttp *            _HttpConfigListener = nullptr;
@@ -68,7 +74,15 @@ ZEC_NS
         }
 
         _Config = Config;
-        _LoggerPtr = LoggerPtr;
+        if (!_SimpleLogger.Init("./rsm.log", true)) {
+            cerr << "Failed to init log file: ./rsm.log" << endl;
+            return false;
+        }
+        if  (LoggerPtr) {
+            _LoggerPtr = LoggerPtr;
+        } else {
+            _LoggerPtr = &_SimpleLogger;
+        }
         // setup libevent
         do {
             event_set_fatal_callback(&OnLibeventFatalError);
@@ -149,6 +163,7 @@ ZEC_NS
         }
         libevent_global_shutdown();
         _LoggerPtr = NonLoggerPtr;
+        _SimpleLogger.Clean();
         Reset(_Config);
         return false;
     }
@@ -170,6 +185,7 @@ ZEC_NS
         event_free(Steal(_EventTicker));
         event_base_free(Steal(_EventBase));
         libevent_global_shutdown();
+        _SimpleLogger.Clean();
         _LoggerPtr = NonLoggerPtr;
         Reset(_Config);
         _Inited = false;

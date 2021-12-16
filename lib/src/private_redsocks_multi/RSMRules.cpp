@@ -36,7 +36,7 @@ ZEC_NS
         }
         else if (AF_INET6 == AddrPtr->sa_family) {
             auto RealAddrPtr = reinterpret_cast<const sockaddr_in6 *>(AddrPtr);
-            std::string Ret { (const char *)&RealAddrPtr->sin6_addr, sizeof(sockaddr_in6::sin6_addr ) };
+            std::string Ret { (const char *)&RealAddrPtr->sin6_addr, sizeof(sockaddr_in6::sin6_addr) };
             Ret.append((const char*)X2Ptr((uint16_t)0), 2);
             return Ret;
         }
@@ -64,6 +64,7 @@ ZEC_NS
             Rule.EndTime = Rule.Timeout + GetTimestamp();
         }
         if (RSM_IsInBlacklist(Rule.Sock5Proxy.Addr.GetSockAddr())) {
+            RSM_LogE("TargetAddress in blacklist");
             return false;
         }
         auto Key = RSM_MakeIpOnlyAddressKey(MatchAddr);

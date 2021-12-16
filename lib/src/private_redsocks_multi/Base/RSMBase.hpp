@@ -12,6 +12,16 @@
 #include <event2/bufferevent.h>
 #include <atomic>
 
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/epoll.h>
+#include <netinet/in.h>
+#include <netinet/ip.h>
+#include <arpa/inet.h>
+#include <sys/time.h>
+#include <unistd.h>
+#include <errno.h>
+
 ZEC_NS
 {
     class xRsmTimeoutNode : public xListNode {};
@@ -37,14 +47,18 @@ ZEC_NS
         ZEC_INLINE const sockaddr * GetSockAddr() const { return &SockAddr; }
         ZEC_INLINE size_t GetSockAddrLen() const { return IsIpv4() ? sizeof(Ipv4) : (IsIpv6() ? sizeof(Ipv6) : 0); }
         ZEC_API_MEMBER bool From(const char * IpStr, uint16_t Port);
+        ZEC_API_MEMBER std::string ToString() const;
+        ZEC_API_MEMBER bool Equals(const xRsmAddr & Other);
     };
 
-    ZEC_PRIVATE bool RSM_TestEqual(const sockaddr * Addr1, const sockaddr * Addr2);
+    ZEC_API std::string ToString(const sockaddr * SockaddrPtr);
 
 #ifdef ZEC_LIBEVENT_MT
     using StatisticCounter = std::atomic_uint64_t;
+    ZEC_INLINE auto RSM_GetAndReset(StatisticCounter & Counter) { return Counter.exchange(0); }
 #else
     using StatisticCounter = uint64_t;
+    ZEC_INLINE auto RSM_GetAndReset(StatisticCounter & Counter) { return Steal(Counter); }
 #endif
 
     ZEC_PRIVATE StatisticCounter TotalIpOnlySourceRules;
@@ -57,13 +71,4 @@ ZEC_NS
     ZEC_PRIVATE StatisticCounter PeriodDataIn;
     ZEC_PRIVATE StatisticCounter PeriodDataOut;
     ZEC_PRIVATE StatisticCounter TotalConnections;
-
-    ZEC_INLINE auto RSM_GetAndReset(StatisticCounter & Counter) {
-    #ifdef ZEC_LIBEVENT_MT
-        return Counter.exchange(0);
-    #else
-        return Steal(Counter);
-    #endif
-    }
-
 }

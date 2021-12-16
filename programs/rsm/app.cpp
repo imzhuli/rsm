@@ -11,8 +11,6 @@
 using namespace zec;
 using namespace std;
 
-static xSimpleLogger Logger;
-
 static const xRsmConfig Config;
 
 static void Usage(const char * name = "app_rsm")
@@ -30,8 +28,6 @@ int main(int Argc, char **Argv)
         Usage();
         return 0;
     }
-
-    auto Guard = xResourceGuard{ Logger };
 
     xRsmConfig Config {};
     auto OptConfig = CmdLine["config"];
@@ -66,7 +62,7 @@ int main(int Argc, char **Argv)
     cout << "Config.ProxyExpire=\'" << Config.ProxyExpire << "\'" << endl;
 
     signal(SIGPIPE, SIG_IGN);
-    if (!RSM_Init(Config, &Logger)) {
+    if (!RSM_Init(Config, nullptr)) {
         cerr << "Failed to init service" << endl;
         return -1;
     }

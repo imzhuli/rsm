@@ -13,7 +13,7 @@ ZEC_NS
     void xRsmProxyConnectionOperator::ServerEntryCallback
         (evconnlistener * Listener, evutil_socket_t SocketFd, sockaddr * SourceAddr, int AddrLen, void *ContextPtr)
     {
-        ++PeriodConnections;        
+        ++PeriodConnections;
         xRsmAddr RsmTargetAddr;
         if (!Rsm_GetOriginalTarget(SocketFd, xRef(RsmTargetAddr))) {
             RSM_LogE("Failed to GetOriginalTargetAddr");
@@ -22,7 +22,7 @@ ZEC_NS
         }
         auto RsmRulePtr = RSM_GetProxyRule(SourceAddr, &RsmTargetAddr.SockAddr);
         if (!RsmRulePtr) {
-            // RSM_LogD("NoProxyRule Found!");
+            RSM_LogE("NoProxyRule Found! SourceAddr=%s", ToString(SourceAddr).c_str());
             evutil_closesocket(SocketFd);
             return;
         }
@@ -81,7 +81,7 @@ ZEC_NS
         } else {
             ++PeriodProxyError;
         }
-        ProxyConnectionPtr->OnProxyDisconnected();        
+        ProxyConnectionPtr->OnProxyDisconnected();
     }
 
     void xRsmProxyConnectionOperator::DeferDelete(xRsmProxyConnection * ProxyConnectionPtr)

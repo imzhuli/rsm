@@ -208,7 +208,7 @@ ZEC_NS
             return true;
         }
         if (Buffer[0] != '\x05' || Buffer[1] != 0x00) {
-            RSM_LogE("ProxyConnectionFailed");
+            RSM_LogE("ProxyConnectionFailed, TargetAddr=%s, Resp=%s", _TargetAddr.ToString().c_str(), StrToHex(Buffer, 4).c_str());
             InnerClean();
             return false;
         }
@@ -220,6 +220,7 @@ ZEC_NS
             }
             evbuffer_drain(_ProxyInputShadow, (int)PayloadSize);
             _State = eRsmS5State::Ready;
+            RSM_LogE("ProxyConnectionIpv4Ready, TargetAddr=%s, Resp=%s", _TargetAddr.ToString().c_str(), StrToHex(Buffer, 4).c_str());
             return RequestPushClientBuffer();
         }
         else if (Buffer[3] == 0x04) {
@@ -230,6 +231,7 @@ ZEC_NS
             }
             evbuffer_drain(_ProxyInputShadow, (int)PayloadSize);
             _State = eRsmS5State::Ready;
+            RSM_LogE("ProxyConnectionIpv6Ready, TargetAddr=%s, Resp=%s", _TargetAddr.ToString().c_str(), StrToHex(Buffer, 4).c_str());
             return RequestPushClientBuffer();
         }
 
