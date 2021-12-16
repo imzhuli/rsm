@@ -1,5 +1,6 @@
 #pragma once
 #include <zec/Common.hpp>
+#include <unordered_set>
 #include <unordered_map>
 #include <string>
 #include <vector>
@@ -50,10 +51,13 @@ ZEC_NS
 
 		ZEC_INLINE xCommandLine() = default;
 		ZEC_INLINE ~xCommandLine() = default;
-		ZEC_API_MEMBER xCommandLine(int argc, char ** argv, const std::vector<xOption> OptionList = {});
+		ZEC_API_MEMBER xCommandLine(int argc, const char ** argv, const std::vector<xOption> & OptionList = {});
+		ZEC_INLINE xCommandLine(int argc, char ** argv, const std::vector<xOption> & OptionList = {})
+		: xCommandLine(argc, const_cast<const char **>(argv), OptionList)
+		{}
 
 		ZEC_API_MEMBER void AddOption(const xOption &Option);
-		ZEC_API_MEMBER void Parse(int Argc, char * Argv[]);
+		ZEC_API_MEMBER void Parse(int Argc, const char * Argv[]);
 
 		ZEC_API_MEMBER xOptionValue GetOptionValue(const std::string & Key) const;
 		ZEC_INLINE     xOptionValue operator[](const std::string & Key) const { return GetOptionValue(Key); }
@@ -74,6 +78,7 @@ ZEC_NS
 			bool NeedValue;
 		};
 
+		std::unordered_set<std::string> _KeySet;
 		std::unordered_map<char, xCoreOption> _ShortOptions;
 		std::unordered_map<std::string, xCoreOption> _LongOptions;
 		std::unordered_map<std::string, std::string> _ParsedValues;

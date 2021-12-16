@@ -57,112 +57,6 @@ ZEC_NS
 		const xSpinlock * _Spinlock;
 	};
 
-	template<typename T>
-	class iAsyncUpdater
-	: xNonCopyable
-	{
-		static_assert(!std::is_reference_v<T>);
-	public:
-		struct xInstanceWrapper {
-			T *       InstancePtr;
-			uint64_t  ExpireMS;
-		};
-		virtual xInstanceWrapper   SyncNewInstance() = 0;
-		virtual void               SyncRetainInstance(T * TargetPtr) = 0;  // Target is never nullptr;
-		virtual void               SyncReleaseInstance(T * TargetPtr) = 0; // Target is never nullptr;
-	};
-
-	template<typename T>
-	class xAsyncTimer final
-	: xNonCopyable
-	{
-		static_assert(!std::is_reference_v<T>);
-		using xObject = T;
-		using iUpdater = iAsyncUpdater<xObject>;
-	public:
-		ZEC_INLINE xAsyncTimer(iUpdater * UpdaterPtr, uint64_t ExpireMinMS = 1000, uint64_t ExpireMaxMS = 60000)
-		: _UpdaterPtr(UpdaterPtr)
-		, _ExpireMinMS(ExpireMinMS)
-		, _ExpireMaxMS(std::max(ExpireMinMS, ExpireMaxMS))
-		, _ExpireMS(_ExpireMinMS)
-		{
-			assert(_UpdaterPtr);
-		}
-		ZEC_INLINE ~xAsyncTimer() {
-			if(_RunLock.load() != NO_RUN_MASK) {
-				Error();
-			}
-		}
-		ZEC_INLINE bool Init() {
-			uint32_t NoRun = NO_RUN_MASK;
-			if (!_RunLock.compare_exchange_strong(NoRun, RUN_MASK)) {
-				return false;
-			}
-			_SyncThread = std::thread{[this]{
-				xObject * RemoveInfoPtr = nullptr;
-				do {
-					if (_ObjectPtr && !_RefreshTimer.TestAndTag(xMilliSeconds{_ExpireMS})) {
-						std::this_thread::sleep_for(xMilliSeconds{_ExpireMinMS});
-						continue;
-					}
-					auto NewInstance = _UpdaterPtr->SyncNewInstance();
-					_ExpireMS = std::min(NewInstance.ExpireMS, _ExpireMaxMS);
-
-					RemoveInfoPtr = nullptr;
-					if (_ObjectPtr != NewInstance.InstancePtr) {
-						auto Guard = xSpinlockGuard{ _Spinlock };
-						RemoveInfoPtr = Steal(_ObjectPtr, NewInstance.InstancePtr);
-					}
-					if (RemoveInfoPtr) {
-						_UpdaterPtr->SyncReleaseInstance(RemoveInfoPtr);
-					}
-
-				} while(RUN_MASK == _RunLock.load());
-
-				do {
-					auto Guard = xSpinlockGuard{ _Spinlock };
-					RemoveInfoPtr = Steal(_ObjectPtr);
-				} while(false);
-				if (RemoveInfoPtr) {
-					_UpdaterPtr->SyncReleaseInstance(RemoveInfoPtr);
-				}
-			}};
-			return true;
-		}
-		ZEC_INLINE void Clean() {
-			uint32_t RunningExpected = RUN_MASK;
-			if (!_RunLock.compare_exchange_strong(RunningExpected, INIT_MASK)) {
-				Error("Invalid Async status");
-				return;
-			}
-			_SyncThread.join();
-			Reset(_SyncThread);
-			_RunLock.store(NO_RUN_MASK);
-		}
-		ZEC_INLINE xObject * GetInstance() {
-			auto Guard = xSpinlockGuard{ _Spinlock };
-			if (_ObjectPtr) {
-				_UpdaterPtr->SyncRetainInstance(_ObjectPtr);
-			}
-			return _ObjectPtr;
-		}
-	private:
-		static constexpr uint32_t NO_RUN_MASK   = 0x0000;
-		static constexpr uint32_t INIT_MASK     = 0x0100;
-		static constexpr uint32_t RUN_MASK      = 0x0101;
-
-		std::atomic<uint32_t>    _RunLock;
-		std::thread              _SyncThread;
-		xTimer                   _RefreshTimer;
-		xSpinlock                _Spinlock    {};
-
-		xObject *                _ObjectPtr   {};
-		iUpdater *               _UpdaterPtr  {};
-		uint64_t                 _ExpireMinMS {};
-		uint64_t                 _ExpireMaxMS {};
-		uint64_t                 _ExpireMS    {};
-	};
-
 	class xThreadSynchronizer final
 	{
 	private:
@@ -182,6 +76,77 @@ ZEC_NS
 		ZEC_API_MEMBER void Release();
 		ZEC_API_MEMBER void Sync();
 	};
+
+	namespace __detail__
+	{
+		template<bool AutoReset = false>
+		struct xEvent
+		: xNonCopyable
+		{
+		private:
+			std::mutex _Mutex;
+			std::condition_variable _ConditionVariable;
+			bool _Ready = false;
+
+		public:
+			ZEC_INLINE void Reset() {
+				auto Lock = std::unique_lock(_Mutex);
+				_Ready = false;
+			}
+
+			template<typename tFuncObj>
+			ZEC_INLINE auto SyncCall(tFuncObj & func) {
+				auto Lock = std::unique_lock(_Mutex);
+				return func();
+			}
+
+			template<typename tFuncPre = xPass, typename tFuncPost = xPass>
+			ZEC_INLINE void Wait(const tFuncPre & funcPre = {}, const tFuncPost & funcPost = {}) {
+				auto Lock = std::unique_lock(_Mutex);
+				funcPre();
+				_ConditionVariable.wait(Lock, [this](){return _Ready;});
+				if constexpr (AutoReset) {
+					_Ready = false;
+				}
+				// Notice : the Post function is called after auto reset,
+				// just incase it throws exception;
+				funcPost();
+			}
+
+			template<typename Rep, typename Period, typename tFuncPre= xPass, typename tFuncPost = xPass>
+			ZEC_INLINE bool WaitFor(const std::chrono::duration<Rep, Period>& RelTime
+					, const tFuncPre & funcPre = {},  const tFuncPost & funcPost = {}) {
+				auto Lock = std::unique_lock(_Mutex);
+				funcPre();
+				if (!_ConditionVariable.wait_for(Lock, RelTime, [this](){return _Ready;})) {
+					return false;
+				}
+				if constexpr (AutoReset) {
+					_Ready = false;
+				}
+				// Notice : the Post function is called after auto reset,
+				// just incase it throws exception;
+				funcPost();
+				return true;
+			}
+
+			template<typename tFuncObj = xPass>
+			ZEC_INLINE std::enable_if_t<std::is_same_v<void, std::invoke_result_t<tFuncObj>>> Notify(const tFuncObj & PreNotifyFunc = {}) {
+				auto Lock = std::unique_lock(_Mutex);
+				PreNotifyFunc();
+				_Ready = true; _ConditionVariable.notify_one();
+			}
+
+			template<typename tFuncObj = xPass>
+			ZEC_INLINE std::enable_if_t<std::is_same_v<void, std::invoke_result_t<tFuncObj>>> NotifyAll(const tFuncObj & PreNotifyFunc = {}) {
+				auto Lock = std::unique_lock(_Mutex);
+				PreNotifyFunc();
+				_Ready = true; _ConditionVariable.notify_all();
+			}
+		};
+	}
+	using xEvent = __detail__::xEvent<false>;
+	using xAutoResetEvent = __detail__::xEvent<true>;
 
 	class xThreadChecker final
 	{

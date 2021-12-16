@@ -4,7 +4,7 @@
 ZEC_NS
 {
 
-	xCommandLine::xCommandLine(int Argc, char ** Argv, const std::vector<xOption> OptionList)
+	xCommandLine::xCommandLine(int Argc, const char ** Argv, const std::vector<xOption> & OptionList)
 	{
 		for (const auto & Option : OptionList) {
 			AddOption(Option);
@@ -26,6 +26,10 @@ ZEC_NS
 		assert(Option.KeyName);
 		assert(Option.ShortName || Option.LongName);
 		xCoreOption CoreOption = { Option.KeyName, Option.NeedValue	};
+		if (_KeySet.find(Option.KeyName) != _KeySet.end()) {
+			Error("Duplicate OptionKey");
+		}
+		_KeySet.insert(Option.KeyName);
 		if (Option.ShortName) {
 			_ShortOptions.insert_or_assign(Option.ShortName, CoreOption);
 		}
@@ -34,7 +38,7 @@ ZEC_NS
 		}
 	}
 
-	void xCommandLine::Parse(int Argc, char * Argv[])
+	void xCommandLine::Parse(int Argc, const char * Argv[])
 	{
 		std::vector<std::string> Keys;
 		int i = 0;
@@ -102,6 +106,7 @@ ZEC_NS
 	{
 		_ShortOptions.clear();
 		_LongOptions.clear();
+		_KeySet.clear();
 	}
 
 	void xCommandLine::CleanValues()

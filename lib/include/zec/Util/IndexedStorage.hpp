@@ -21,6 +21,7 @@ ZEC_NS
 	 *      the highest bit in Key part is always one (aka: KeyInUseBitmask == 0x8000'0000u),
 	 *      so the id pool could use one 32bit integer to store an index to next free node in chain
 	 *      while the index itself is free, or a key value with KeyInUseBitmask set while the index is in use;
+	 *    Especially, since all allocated index has KeyInUseBitmask set to 1, a valid index id is never zero;
 	 * */
 	class xIndexId final
 	{
@@ -28,23 +29,23 @@ ZEC_NS
 		ZEC_INLINE xIndexId() = default;
 		ZEC_INLINE constexpr xIndexId(uint64_t Value) : _Value(Value) {};
 		ZEC_INLINE constexpr operator uint64_t () const { return _Value; }
-		ZEC_INLINE constexpr bool IsValid() const { return _Value != InvalidValue; }
 
 		ZEC_INLINE uint32_t GetIndex() const { return (uint32_t)_Value; }
 		ZEC_INLINE uint32_t GetKey() const { return static_cast<uint32_t>(_Value >> 32);}
 
-		static constexpr uint32_t MaxIndexValue = static_cast<uint32_t>(0x7FFF'FFFFu);
-		static constexpr uint64_t InvalidValue  = static_cast<uint64_t>(-1);
+		static constexpr uint64_t InvalidValue  = static_cast<uint64_t>(0);
 
 	private:
 		uint64_t _Value;
+
 		template<bool RandomKey>
 		friend class xIndexIdPool;
 		template<typename tValue, bool RandomKey>
 		friend class xIndexedStorage;
 
-		static constexpr const uint32_t KeyInUseBitmask = 0x8000'0000u;
 		ZEC_API_STATIC_MEMBER uint_fast32_t TimeSeed();
+		static constexpr uint32_t MaxIndexValue = static_cast<uint32_t>(0x7FFF'FFFFu);
+		static constexpr const uint32_t KeyInUseBitmask = 0x8000'0000u;
 	};
 
 	template<bool RandomKey>
@@ -93,21 +94,28 @@ ZEC_NS
 			return { (static_cast<uint64_t>(Rand) << 32) + Index };
 		}
 
+		ZEC_INLINE void Release(const xIndexId& Id) {
+			uint32_t Index = Id.GetIndex();
+			_IdPoolPtr[Index] = Steal(_NextFreeIdIndex, Index);
+		}
+
 		ZEC_INLINE bool Check(const xIndexId& Id) {
 			uint32_t Index = Id.GetIndex();
 			if (Index >= _IdPoolSize) {
 				return false;
 			}
-			return _IdPoolPtr[Index] == Id.GetKey();
-		}
-		ZEC_INLINE bool IsInUse(const uint32_t Index) {
-			assert(Index < _IdPoolSize);
-			return _IdPoolPtr[Index] & xIndexId::KeyInUseBitmask;
+			auto Key = Id.GetKey();
+			return (Key & xIndexId::KeyInUseBitmask) && (Key == _IdPoolPtr[Index]);
 		}
 
-		ZEC_INLINE void Release(const xIndexId& Id) {
+		ZEC_INLINE bool CheckAndRelease(const xIndexId& Id) {
 			uint32_t Index = Id.GetIndex();
+			auto Key = Id.GetKey();
+			if (Index >= _IdPoolSize || !(Key & xIndexId::KeyInUseBitmask) ||  Key != _IdPoolPtr[Index]) {
+				return false;
+			}
 			_IdPoolPtr[Index] = Steal(_NextFreeIdIndex, Index);
+			return true;
 		}
 
 	private:
@@ -154,7 +162,7 @@ ZEC_NS
 			_NextFreeIdIndex = InvalidIndex;
 		}
 
-		ZEC_INLINE xIndexId Acquire(const tValue & Value = {}) {
+		ZEC_INLINE xIndexId Acquire(const tValue & Value) {
 			uint32_t Index;
 			if (_NextFreeIdIndex == InvalidIndex) {
 				if (_InitedId >= _IdPoolSize) {
@@ -170,12 +178,57 @@ ZEC_NS
 			return { (static_cast<uint64_t>(Rand) << 32) + Index };
 		}
 
+		ZEC_INLINE xIndexId Acquire(tValue && Value = {}) {
+			uint32_t Index;
+			if (_NextFreeIdIndex == InvalidIndex) {
+				if (_InitedId >= _IdPoolSize) {
+					return xIndexId::InvalidValue;
+				}
+				Index = _InitedId++;
+			} else {
+				Index = Steal(_NextFreeIdIndex, _IdPoolPtr[_NextFreeIdIndex]);
+			}
+			uint32_t Rand = (RandomKey ? _Random32() : ++_Counter) | xIndexId::KeyInUseBitmask;
+			_IdPoolPtr[Index] = Rand ;
+			new ((void*)(_StoragePtr + Index)) tValue{ std::move(Value) };
+			return { (static_cast<uint64_t>(Rand) << 32) + Index };
+		}
+
+		ZEC_INLINE void Release(const xIndexId& Id) {
+			uint32_t Index = Id.GetIndex();
+			_IdPoolPtr[Index] = Steal(_NextFreeIdIndex, Index);
+			_StoragePtr[Index].~tValue();
+		}
+
 		ZEC_INLINE bool Check(const xIndexId& Id) {
 			uint32_t Index = Id.GetIndex();
 			if (Index >= _IdPoolSize) {
 				return false;
 			}
-			return _IdPoolPtr[Index] == Id.GetKey();
+			auto Key = Id.GetKey();
+			return (Key & xIndexId::KeyInUseBitmask) && (Key == _IdPoolPtr[Index]);
+		}
+
+		ZEC_INLINE xOptional<xRef<const tValue>> CheckAndGet(const xIndexId& Id) const {
+			uint32_t Index = Id.GetIndex();
+			auto Key = Id.GetKey();
+			if (Index >= _IdPoolSize || !(Key & xIndexId::KeyInUseBitmask) || Key != _IdPoolPtr[Index]) {
+				return {};
+			}
+			return _StoragePtr[Index];
+		}
+
+		ZEC_INLINE xOptional<tValue> CheckAndRelease(const xIndexId& Id) const {
+			uint32_t Index = Id.GetIndex();
+			auto Key = Id.GetKey();
+			if (Index >= _IdPoolSize || !(Key & xIndexId::KeyInUseBitmask) || Key != _IdPoolPtr[Index]) {
+				return {};
+			}
+			auto DeferedRelese = xScopeGuard{[&](){
+				_StoragePtr[Index].~tValue();
+			}};
+			_IdPoolPtr[Index] = Steal(_NextFreeIdIndex, Index);
+			return std::move(_StoragePtr[Index]);
 		}
 
 		ZEC_INLINE const tValue & Get(const xIndexId& Id) const {
@@ -187,11 +240,6 @@ ZEC_NS
 			_StoragePtr[Id.GetIndex()] = std::forward<tAssignValue>(Value);
 		}
 
-		ZEC_INLINE void Release(const xIndexId& Id) {
-			uint32_t Index = Id.GetIndex();
-			_StoragePtr[Index].~tValue();
-			_IdPoolPtr[Index] = Steal(_NextFreeIdIndex, Index);
-		}
 
 	private:
 		size32_t      _InitedId   = 0;
