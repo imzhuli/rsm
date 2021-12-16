@@ -43,35 +43,11 @@ ZEC_NS
         return {};
     }
 
-    static xProxyRuleMap ExactTargetRuleMap;
-    static xProxyRuleMap IpOnlyTargetRuleMap;
-    static xProxyRuleMap ExactSourceRuleMap;
     static xProxyRuleMap IpOnlySourceRuleMap;
 
     const xRsmRule * RSM_GetProxyRule(const sockaddr * SourceAddrPtr, const sockaddr * TargetAddrPtr)
     {
         auto & Config = RSM_GetConfig();
-        if (Config.ExactTargetRule) {
-            auto Key = RSM_MakeExactAddressKey(TargetAddrPtr);
-            auto Iter = ExactTargetRuleMap.find(Key);
-            if (Iter != ExactTargetRuleMap.end()) {
-                return &Iter->second;
-            }
-        }
-        if (Config.ExactSourceRule) {
-            auto Key = RSM_MakeExactAddressKey(SourceAddrPtr);
-            auto Iter = ExactSourceRuleMap.find(Key);
-            if (Iter != ExactSourceRuleMap.end()) {
-                return &Iter->second;
-            }
-        }
-        if (Config.IpOnlyTargetRule) {
-            auto Key = RSM_MakeIpOnlyAddressKey(TargetAddrPtr);
-            auto Iter = IpOnlyTargetRuleMap.find(Key);
-            if (Iter != IpOnlyTargetRuleMap.end()) {
-                return &Iter->second;
-            }
-        }
         if (Config.IpOnlySourceRule) {
             auto Key = RSM_MakeIpOnlyAddressKey(SourceAddrPtr);
             auto Iter = IpOnlySourceRuleMap.find(Key);
@@ -82,7 +58,7 @@ ZEC_NS
         return nullptr;
     }
 
-    bool RSM_SetProxyRule(xRsmRule && Rule, const sockaddr * MatchAddr, xRsmRuleType Type)
+    bool RSM_SetProxyRule(xRsmRule && Rule, const sockaddr * MatchAddr)
     {
         if (Rule.Timeout != (uint64_t)(-1)) {
             Rule.EndTime = Rule.Timeout + GetTimestamp();
@@ -90,79 +66,23 @@ ZEC_NS
         if (RSM_IsInBlacklist(Rule.Sock5Proxy.Addr.GetSockAddr())) {
             return false;
         }
-        if (Type == xRsmRuleType::IpOnlySourceRule) {
-            auto Key = RSM_MakeIpOnlyAddressKey(MatchAddr);
-            auto [Iter, Insert] = IpOnlySourceRuleMap.insert_or_assign(Key, std::move(Rule));
-            if (Insert) {
-                ++TotalIpOnlySourceRules;
-            }
-            return true;
+        auto Key = RSM_MakeIpOnlyAddressKey(MatchAddr);
+        auto [Iter, Insert] = IpOnlySourceRuleMap.insert_or_assign(Key, std::move(Rule));
+        if (Insert) {
+            ++TotalIpOnlySourceRules;
         }
-        else if (Type == xRsmRuleType::IpOnlyTargetRule) {
-            auto Key = RSM_MakeIpOnlyAddressKey(MatchAddr);
-            auto [Iter, Insert] = IpOnlyTargetRuleMap.insert_or_assign(Key, std::move(Rule));
-            if (Insert) {
-                ++TotalIpOnlyTargetRules;
-            }
-            return true;
-        }
-        else if (Type == xRsmRuleType::ExactSourceRule) {
-            auto Key = RSM_MakeExactAddressKey(MatchAddr);
-            auto [Iter, Insert] = ExactSourceRuleMap.insert_or_assign(Key, std::move(Rule));
-            if (Insert) {
-                ++TotalExactSourceRules;
-            }
-            return true;
-        }
-        else if (Type == xRsmRuleType::ExactTargetRule) {
-            auto Key = RSM_MakeExactAddressKey(MatchAddr);
-            auto [Iter, Insert] = ExactTargetRuleMap.insert_or_assign(Key, std::move(Rule));
-            if (Insert) {
-                ++TotalExactTargetRules;
-            }
-            return true;
-        }
-        return false;
+        return true;
     }
 
-    void RSM_UnsetProxyRule(const sockaddr * MatchAddr, xRsmRuleType Type)
+    void RSM_UnsetProxyRule(const sockaddr * MatchAddr)
     {
-        if (Type == xRsmRuleType::IpOnlySourceRule) {
-            auto Key = RSM_MakeIpOnlyAddressKey(MatchAddr);
-            auto Iter = IpOnlySourceRuleMap.find(Key);
-            if (Iter == IpOnlySourceRuleMap.end()) {
-                return;
-            }
-            IpOnlySourceRuleMap.erase(Iter);
-            --TotalIpOnlySourceRules;
+        auto Key = RSM_MakeIpOnlyAddressKey(MatchAddr);
+        auto Iter = IpOnlySourceRuleMap.find(Key);
+        if (Iter == IpOnlySourceRuleMap.end()) {
+            return;
         }
-        else if (Type == xRsmRuleType::IpOnlyTargetRule) {
-            auto Key = RSM_MakeIpOnlyAddressKey(MatchAddr);
-            auto Iter = IpOnlyTargetRuleMap.find(Key);
-            if (Iter == IpOnlyTargetRuleMap.end()) {
-                return;
-            }
-            IpOnlyTargetRuleMap.erase(Iter);
-            --TotalIpOnlyTargetRules;
-        }
-        else if (Type == xRsmRuleType::ExactSourceRule) {
-            auto Key = RSM_MakeExactAddressKey(MatchAddr);
-            auto Iter = ExactSourceRuleMap.find(Key);
-            if (Iter == ExactSourceRuleMap.end()) {
-                return;
-            }
-            ExactSourceRuleMap.erase(Iter);
-            --TotalExactSourceRules;
-        }
-        else if (Type == xRsmRuleType::ExactTargetRule) {
-            auto Key = RSM_MakeExactAddressKey(MatchAddr);
-            auto Iter = ExactTargetRuleMap.find(Key);
-            if (Iter == ExactTargetRuleMap.end()) {
-                return;
-            }
-            ExactTargetRuleMap.erase(Iter);
-            --TotalExactTargetRules;
-        }
+        IpOnlySourceRuleMap.erase(Iter);
+        --TotalIpOnlySourceRules;
     }
 
     static xTimer ClearTimer;
@@ -172,50 +92,14 @@ ZEC_NS
             return;
         }
         uint64_t Timestamp = GetTimestamp();
-        switch(Timestamp % 4) {
-            case 0: {
-                for (auto Iter = IpOnlySourceRuleMap.begin(); Iter != IpOnlySourceRuleMap.end();) {
-                    if (Iter->second.EndTime < Timestamp) {
-                        Iter = IpOnlySourceRuleMap.erase(Iter);
-                        --TotalIpOnlySourceRules;
-                    } else {
-                        ++Iter;
-                    }
+        if(!(Timestamp % 5)) {
+            for (auto Iter = IpOnlySourceRuleMap.begin(); Iter != IpOnlySourceRuleMap.end();) {
+                if (Iter->second.EndTime < Timestamp) {
+                    Iter = IpOnlySourceRuleMap.erase(Iter);
+                    --TotalIpOnlySourceRules;
+                } else {
+                    ++Iter;
                 }
-                break;
-            }
-            case 1: {
-                for (auto Iter = ExactSourceRuleMap.begin(); Iter != ExactSourceRuleMap.end();) {
-                    if (Iter->second.EndTime < Timestamp) {
-                        Iter = ExactSourceRuleMap.erase(Iter);
-                        --TotalExactSourceRules;
-                    } else {
-                        ++Iter;
-                    }
-                }
-                break;
-            }
-            case 2: {
-                for (auto Iter = IpOnlyTargetRuleMap.begin(); Iter != IpOnlyTargetRuleMap.end();) {
-                    if (Iter->second.EndTime < Timestamp) {
-                        Iter = IpOnlyTargetRuleMap.erase(Iter);
-                        --TotalIpOnlyTargetRules;
-                    } else {
-                        ++Iter;
-                    }
-                }
-                break;
-            }
-            case 3: {
-                for (auto Iter = ExactTargetRuleMap.begin(); Iter != ExactTargetRuleMap.end();) {
-                    if (Iter->second.EndTime < Timestamp) {
-                        Iter = ExactTargetRuleMap.erase(Iter);
-                        --TotalExactTargetRules;
-                    } else {
-                        ++Iter;
-                    }
-                }
-                break;
             }
         }
     }

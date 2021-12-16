@@ -47,9 +47,6 @@ ZEC_NS
     using StatisticCounter = uint64_t;
 #endif
 
-    ZEC_PRIVATE StatisticCounter TotalExactTargetRules;
-    ZEC_PRIVATE StatisticCounter TotalExactSourceRules;
-    ZEC_PRIVATE StatisticCounter TotalIpOnlyTargetRules;
     ZEC_PRIVATE StatisticCounter TotalIpOnlySourceRules;
 
     ZEC_PRIVATE StatisticCounter PeriodConnections;

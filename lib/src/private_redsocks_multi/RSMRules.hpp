@@ -27,8 +27,8 @@ ZEC_NS
     ZEC_PRIVATE std::string RSM_MakeIpOnlyAddressKey(const sockaddr * AddrPtr);
 
     ZEC_PRIVATE const xRsmRule * RSM_GetProxyRule(const sockaddr * SourceAddrPtr, const sockaddr * TargetAddrPtr);
-    ZEC_PRIVATE bool RSM_SetProxyRule(xRsmRule && Rule, const sockaddr * MatchAddr, xRsmRuleType Type = xRsmRuleType::IpOnlySourceRule);
-    ZEC_PRIVATE void RSM_UnsetProxyRule(const sockaddr * MatchAddr, xRsmRuleType Type = xRsmRuleType::IpOnlySourceRule);
+    ZEC_PRIVATE bool RSM_SetProxyRule(xRsmRule && Rule, const sockaddr * MatchAddr);
+    ZEC_PRIVATE void RSM_UnsetProxyRule(const sockaddr * MatchAddr);
     ZEC_PRIVATE void RSM_ClearTimeoutRules();
 
     ZEC_PRIVATE void RSM_SetProxyBlacklist(const sockaddr * ProxyAddr);

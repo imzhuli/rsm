@@ -10,14 +10,6 @@ ZEC_NS
 	static inline constexpr const int RsmTcpKeepaliveInterval = 75;
     static inline constexpr const uint64_t RsmProxyExpire = 300;
 
-    enum struct xRsmRuleType // the larger the value is, the higher priority the Rule is of
-    {
-        IpOnlySourceRule  = 0,
-        IpOnlyTargetRule  = 1,
-        ExactSourceRule   = 2,
-        ExactTargetRule   = 3,
-    };
-
     struct xRsmConfig
     {
         std::string ConfigIp   = "192.168.100.1";
@@ -29,9 +21,6 @@ ZEC_NS
         uint32_t    ProxyExpire = RsmProxyExpire;
 
         bool IpOnlySourceRule = true;
-        bool ExactSourceRule = false;
-        bool IpOnlyTargetRule = false;
-        bool ExactTargetRule = false;
     };
 
 }
