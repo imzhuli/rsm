@@ -27,15 +27,4 @@ endif()
 endfunction()
 
 #test lib:
-add_sub_test(cmd)
-add_test(
-	NAME cmd_short_long_empty
-	COMMAND test_cmd "-abcv" "Value for V" "Arg1" "Arg2" "--EmptyValue"
-	)
-add_test(
-	NAME cmd_short_long_subcmd
-	COMMAND test_cmd "-a" "-bv" "Value for V" "-c" "Arg1" "--LongValue" "LongValue" "-e" "EmptyValue" "Arg2" "--" "SubCmd1" "SubCmd2"
-	)
-	
 add_sub_test(uuid)
-add_sub_test(rsm)
