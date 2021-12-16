@@ -28,30 +28,6 @@ ZEC_NS
 		return false;
 	}
 
-	bool GetOriginalTargetIpv4(int fd, xRef<sockaddr_in> TargetAddrOutput)
-	{
-		auto &Output = TargetAddrOutput.Get();
-		socklen_t socklen = sizeof(Output);
-		int error = getsockopt(fd, SOL_IP, SO_ORIGINAL_DST, &Output, &socklen);
-		if (error)
-		{
-			return false;
-		}
-		return true;
-	}
-
-    bool Rsm_GetOriginalTargetAddrIpv6(int fd, xRef<sockaddr_in6> TargetAddrOutput)
-	{
-		auto &Output = TargetAddrOutput.Get();
-		socklen_t socklen = sizeof(Output);
-		int error = getsockopt(fd, SOL_IP, SO_ORIGINAL_DST, &Output, &socklen);
-		if (error)
-		{
-			return false;
-		}
-		return true;
-	}
-
 	bool Rsm_SetTcpKeepaliveParams(int fd)
 	{
 		struct
