@@ -22,7 +22,7 @@ ZEC_NS
         }
         auto RsmRulePtr = RSM_GetProxyRule(SourceAddr, &RsmTargetAddr.SockAddr);
         if (!RsmRulePtr) {
-            RSM_LogE("NoProxyRule Found! SourceAddr=%s", ToString(SourceAddr).c_str());
+            RSM_LogE("NoProxyRule Found! SourceAddr=%s, TargetAddr=%s", ToString(SourceAddr).c_str(), RsmTargetAddr.ToString().c_str());
             evutil_closesocket(SocketFd);
             return;
         }

@@ -70,7 +70,9 @@ ZEC_NS
                 evhttp_send_error(Request, HTTP_BADREQUEST, "Blacklist");
                 return;
             }
-            RSM_LogI("UpdateProxyRule, Source=%s, Proxy=%s", ToString(SockAddrPtr).c_str(), Addr.ToString().c_str());
+            RSM_LogI("UpdateProxyRule, Source=%s, Proxy=%s, User/Pass=[%s:%s]", ToString(SockAddrPtr).c_str(), Addr.ToString().c_str(),
+                (ProxyUser ? ProxyUser : "(nil user)"),
+                (ProxyUser ? ProxyUser : "(nil pass)"));
             SendHttpOk(Request);
             return;
         }
