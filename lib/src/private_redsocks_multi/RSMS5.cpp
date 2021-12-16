@@ -149,7 +149,6 @@ ZEC_NS
         W.W(_Auth->Username.data(), _Auth->Username.length());
         W.W1(_Auth->Password.length());
         W.W(_Auth->Password.data(), _Auth->Password.length());
-
         if (evbuffer_add(_ProxyOutputShadow, OutBuffer, (int)W.Offset())) {
             InnerClean();
             return false;
