@@ -72,7 +72,7 @@ ZEC_NS
             }
             RSM_LogI("UpdateProxyRule, Source=%s, Proxy=%s, User/Pass=[%s:%s]", ToString(SockAddrPtr).c_str(), Addr.ToString().c_str(),
                 (ProxyUser ? ProxyUser : "(nil user)"),
-                (ProxyUser ? ProxyUser : "(nil pass)"));
+                (ProxyPass ? ProxyPass : "(nil pass)"));
             SendHttpOk(Request);
             return;
         }
